@@ -1,0 +1,163 @@
+{
+  "report_title": "서브프라임 모기지 백테스트 상세 보고서",
+  "period": "2002-01-02 ~ 2014-12-31",
+  "data_source": "data_subprime",
+  "generated_at": "2026-04-05",
+
+  "summary": {
+    "total_return_strategy": 91.27,
+    "total_return_benchmark": 78.31,
+    "final_value_strategy": 191297174,
+    "final_value_benchmark": 178310686,
+    "initial_capital": 100000000,
+    "cagr_strategy": 5.12,
+    "cagr_benchmark": 4.55,
+    "excess_return": 0.57,
+    "volatility_strategy": 9.32,
+    "volatility_benchmark": 20.13,
+    "sharpe_strategy": 0.120,
+    "sharpe_benchmark": 0.028,
+    "sortino": 0.156,
+    "calmar": 0.219,
+    "mdd_strategy": -23.39,
+    "mdd_benchmark": -56.78,
+    "alpha": 0.90,
+    "beta": 0.391,
+    "info_ratio": 0.043,
+    "tracking_error": 13.25,
+    "win_rate": 39.9,
+    "avg_win": 10.42,
+    "avg_loss": -9.14,
+    "profit_factor": 0.76,
+    "total_trades": 831,
+    "total_rebalances": 708
+  },
+
+  "validation": {
+    "is_sharpe": -0.010,
+    "oos_sharpe": 0.456,
+    "sharpe_diff": 0.466,
+    "criteria": {
+      "excess_return_positive": {"pass": true, "value": 0.57, "threshold": "> 0"},
+      "sharpe_above_05": {"pass": false, "value": 0.120, "threshold": "> 0.5"},
+      "mdd_within_120pct": {"pass": true, "value": -23.39, "benchmark_mdd": -56.78},
+      "is_oos_sharpe_diff_lt_03": {"pass": false, "value": 0.466, "threshold": "< 0.3"},
+      "beta_in_range": {"pass": false, "value": 0.391, "threshold": "0.8 ~ 1.2"}
+    },
+    "pass_count": "2/5"
+  },
+
+  "yearly_comparison": [
+    {"year": 2002, "strategy": 2.58,   "benchmark": -23.80, "excess": 26.38,  "market": "닷컴 여파 + 침체"},
+    {"year": 2003, "strategy": 9.50,   "benchmark": 26.38,  "excess": -16.88, "market": "회복기"},
+    {"year": 2004, "strategy": 2.05,   "benchmark": 8.99,   "excess": -6.94,  "market": "안정기"},
+    {"year": 2005, "strategy": 1.80,   "benchmark": 3.00,   "excess": -1.20,  "market": "안정기"},
+    {"year": 2006, "strategy": 6.27,   "benchmark": 13.62,  "excess": -7.35,  "market": "상승기"},
+    {"year": 2007, "strategy": 10.56,  "benchmark": 3.53,   "excess": 7.03,   "market": "위기 전조"},
+    {"year": 2008, "strategy": -13.03, "benchmark": -38.49, "excess": 25.46,  "market": "서브프라임 붕괴"},
+    {"year": 2009, "strategy": 14.65,  "benchmark": 23.45,  "excess": -8.80,  "market": "반등"},
+    {"year": 2010, "strategy": 2.56,   "benchmark": 12.78,  "excess": -10.22, "market": "회복기"},
+    {"year": 2011, "strategy": -2.17,  "benchmark": -0.00,  "excess": -2.17,  "market": "유럽 재정위기"},
+    {"year": 2012, "strategy": 8.87,   "benchmark": 13.41,  "excess": -4.54,  "market": "회복기"},
+    {"year": 2013, "strategy": 17.05,  "benchmark": 29.60,  "excess": -12.55, "market": "강세장"},
+    {"year": 2014, "strategy": 10.05,  "benchmark": 12.55,  "excess": -2.50,  "market": "강세장"}
+  ],
+
+  "action_distribution": {
+    "HOLD": {"count": 22347, "pct": 69.6},
+    "REDUCE": {"count": 6159, "pct": 19.2},
+    "TREND_BUY": {"count": 1808, "pct": 5.6},
+    "S_BUY": {"count": 760, "pct": 2.4},
+    "STOP_EXIT": {"count": 485, "pct": 1.5},
+    "EXIT": {"count": 462, "pct": 1.4},
+    "TREND_HOLD": {"count": 66, "pct": 0.2},
+    "WAIT_DIP": {"count": 30, "pct": 0.1}
+  },
+
+  "crisis_performance": {
+    "subprime_crash_2008": {
+      "strategy_return": -13.03,
+      "benchmark_return": -38.49,
+      "excess": 25.46,
+      "strategy_mdd": -23.39,
+      "benchmark_mdd": -56.78,
+      "comment": "벤치마크 대비 25%p 방어. MDD -23% vs -57%로 절반 이하 손실"
+    },
+    "pre_crisis_2002": {
+      "strategy_return": 2.58,
+      "benchmark_return": -23.80,
+      "excess": 26.38,
+      "comment": "닷컴 여파 속 양의 수익 달성, 벤치 대비 +26%p"
+    },
+    "recovery_2009_2010": {
+      "strategy_return": 17.21,
+      "benchmark_return": 36.23,
+      "excess": -19.02,
+      "comment": "회복기 추종 미흡. Beta 0.391로 상승장 노출 부족"
+    },
+    "bull_market_2013_2014": {
+      "strategy_return": 27.10,
+      "benchmark_return": 42.15,
+      "excess": -15.05,
+      "comment": "강세장에서 시장 대비 15%p 뒤처짐"
+    }
+  },
+
+  "problems": [
+    {
+      "id": 1,
+      "title": "극단적 저Beta (0.391)",
+      "severity": "HIGH",
+      "description": "닷컴(0.497)보다도 낮은 Beta. 시장 노출 40% 미만으로 상승장 수익 포기. REDUCE(19.2%) 비중 과다",
+      "impact": "상승장 13년 중 11년에서 벤치마크 미달"
+    },
+    {
+      "id": 2,
+      "title": "Profit Factor 1.0 미만 (0.76)",
+      "severity": "HIGH",
+      "description": "총 이익 < 총 손실. Win Rate 39.9%에 평균 이익(10.42%) vs 평균 손실(9.14%)로 손익비가 불충분",
+      "impact": "트레이딩 자체가 수익을 깎는 구조"
+    },
+    {
+      "id": 3,
+      "title": "IS/OOS Sharpe diff 0.466",
+      "severity": "MEDIUM",
+      "description": "IS Sharpe -0.01 vs OOS Sharpe 0.456. 전반기(2002~2008 위기 포함)에서 성과 저조, 후반기(2009~2014 회복)에서 개선. 시장 레짐에 따라 성과 편차 큼",
+      "is_sharpe": -0.010,
+      "oos_sharpe": 0.456
+    },
+    {
+      "id": 4,
+      "title": "회복기 진입 지연",
+      "severity": "MEDIUM",
+      "description": "2009 반등(+23.45%) 시 전략 +14.65%에 그침. 위기 직후 Gate가 여전히 보수적 → 매수 신호 지연",
+      "affected_years": [2003, 2009, 2010]
+    }
+  ],
+
+  "strengths": [
+    {
+      "title": "위기 방어 최우수",
+      "detail": "2008년 -13.03% vs 벤치 -38.49% (+25.5%p). 2002년에도 +2.58% vs -23.80% (+26.4%p)"
+    },
+    {
+      "title": "초과수익 달성",
+      "detail": "CAGR +5.12% vs +4.55%로 13년간 누적 초과수익 +0.57%p (닷컴과 달리 양수)"
+    },
+    {
+      "title": "극저 변동성",
+      "detail": "전략 변동성 9.32% vs 벤치 20.13% — 절반 이하. 안정적 자산 보호"
+    },
+    {
+      "title": "MDD 압도적 방어",
+      "detail": "-23.39% vs -56.78%. 벤치마크가 반토막 날 때 전략은 1/4만 손실"
+    }
+  ],
+
+  "comparison_with_dotcom": {
+    "dotcom": {"cagr": 8.14, "excess": -0.81, "mdd_strategy": -22.66, "mdd_bench": -49.15, "beta": 0.497, "sharpe": 0.421},
+    "subprime": {"cagr": 5.12, "excess": 0.57, "mdd_strategy": -23.39, "mdd_bench": -56.78, "beta": 0.391, "sharpe": 0.120},
+    "baseline_2013_2024": {"cagr": 16.28, "excess": 4.61, "mdd_strategy": -27.04, "mdd_bench": -33.92, "beta": 0.769, "sharpe": 0.855},
+    "insight": "위기 기간일수록 Beta가 낮아지고(0.769→0.497→0.391) MDD 방어는 강화되지만 상승장 추종이 약화됨. 서브프라임이 더 극심한 위기(-57% MDD)였지만 전략은 유사한 MDD(-23%)로 방어 — 알고리즘의 하방 보호가 일관성 있음"
+  }
+}
