@@ -18,6 +18,82 @@ from quant_alpha_v3_4_unified import (
 )
 np.random.seed(2024)
 
+import os as _os
+DATA_DIR = _os.path.join(_os.path.dirname(__file__), "data")
+
+
+def _normalize_stock(s: dict) -> dict:
+    """synthetic/real 데이터 소스의 키 이름을 통일."""
+    return {
+        "sym":           s.get("symbol", s.get("sym", "")),
+        "symbol":        s.get("symbol", s.get("sym", "")),
+        "sec":           s.get("sector", s.get("sec", "Technology")),
+        "sector":        s.get("sector", s.get("sec", "Technology")),
+        "cntry":         s.get("country", s.get("cntry", "US")),
+        "country":       s.get("country", s.get("cntry", "US")),
+        "itype":         s.get("industry_type", s.get("itype", "C")),
+        "industry_type": s.get("industry_type", s.get("itype", "C")),
+        "beta":          float(s.get("beta", 1.0)),
+        "market_cap":    float(s.get("market_cap", s.get("mcap", 50e9))),
+        "mcap":          float(s.get("market_cap", s.get("mcap", 50e9))),
+        "malpha":        float(s.get("malpha", 0.0)),
+        "q":             float(s.get("q", 0.5)),
+    }
+
+
+def _align_bench_to_dates(bench_dict: dict, dates: list) -> np.ndarray:
+    """벤치마크 딕셔너리를 날짜 배열에 맞추고 결측값 forward-fill."""
+    prices = []
+    last = None
+    for d in dates:
+        v = bench_dict.get(d)
+        if v is not None:
+            last = v
+        prices.append(last if last is not None else 100.0)
+    return np.array(prices)
+
+
+def _load_all_prices(symbols: list) -> dict:
+    """모든 종목의 일별 가격 미리 로드. {symbol: {datetime: price}}"""
+    import csv as _csv
+    all_prices = {}
+    for sym in symbols:
+        path = _os.path.join(DATA_DIR, "1_price", f"{sym}.csv")
+        if not _os.path.exists(path):
+            continue
+        prices = {}
+        with open(path) as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                try:
+                    date_str = row.get("Date") or row.get("date", "")
+                    close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
+                    if not date_str or not close_str:
+                        continue
+                    dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+                    all_prices.setdefault(sym, {})[dt] = float(close_str)
+                except (ValueError, KeyError):
+                    pass
+    return all_prices
+
+
+def _print_data_banner(stocks: list):
+    """시작 시 데이터 상태 출력."""
+    price_count = sum(1 for s in stocks if _os.path.exists(
+        _os.path.join(DATA_DIR, "1_price", f"{s['symbol']}.csv")))
+    bench_ok = _os.path.exists(_os.path.join(DATA_DIR, "5_benchmark", "SP500.csv"))
+    uni_ok   = _os.path.exists(_os.path.join(DATA_DIR, "6_universe", "sp500_current.csv"))
+    macro_ok = _os.path.exists(_os.path.join(DATA_DIR, "4_macro", "vix.csv"))
+    print("=" * 60)
+    print("  Quant-Alpha v3.4  |  DATA MODE: REAL DATA")
+    print("=" * 60)
+    print(f"  {'✓' if uni_ok   else '?'} data/6_universe/sp500_current.csv  ({len(stocks)} symbols)")
+    print(f"  {'✓' if bench_ok else '?'} data/5_benchmark/SP500.csv")
+    print(f"  {'✓' if price_count else '?'} data/1_price/  ({price_count} files)")
+    print(f"  {'✓' if macro_ok else '?'} data/4_macro/vix.csv")
+    print("=" * 60)
+
+
 SECTORS = ["Technology","Healthcare","Financials","ConsumerDisc","Industrials",
            "Communication","ConsumerStaples","Energy","Utilities","Materials","RealEstate"]
 SECTOR_BETAS = {"Technology":1.25,"Healthcare":0.85,"Financials":1.15,"ConsumerDisc":1.20,
@@ -101,8 +177,23 @@ def sim_metrics(stk,date,mkt_ret,reg):
 class BacktestEngine:
     def __init__(self,cap=100_000_000):
         self.cap0=cap; self.cap=cap
-        self.dates=gen_dates(); self.stocks=gen_stocks(80)
-        self.bench=gen_bench(self.dates)
+        self.dates=gen_dates()
+
+        # 실데이터 로드
+        from data_loader import load_universe, load_benchmark
+        raw = load_universe()
+        self.stocks = [_normalize_stock(s) for s in raw]
+        bench_dict = load_benchmark(self.dates)
+        self.bench = _align_bench_to_dates(bench_dict, self.dates)
+
+        # 종목별 일별 가격 미리 로드 (일별 P&L 계산용)
+        self._all_prices = _load_all_prices([s["symbol"] for s in self.stocks])
+
+        # 종목 인덱스 (sym → dict)
+        self._stock_index = {s["sym"]: s for s in self.stocks}
+
+        _print_data_banner(self.stocks)
+
         self.holdings={}; self.pv=[]; self.bv=[]; self.cash_h=[]
         self.reg_h=[]; self.trades=[]; self.reb_cnt=0; self.act_cnt={}
         self.dd_h=[]; self.pos_h=[]; self.monthly_s=[]; self.monthly_b=[]
@@ -122,9 +213,19 @@ class BacktestEngine:
             if di>0: mret=(self.bench[di]-self.bench[di-1])/self.bench[di-1]
             pret=0.0
             for sym,h in list(self.holdings.items()):
-                stk=next((s for s in self.stocks if s["sym"]==sym),None)
+                stk=self._stock_index.get(sym)
                 if stk:
-                    sr=mret*stk["beta"]+stk["malpha"]+np.random.normal(0,0.005)
+                    # 실제 일별 수익률 사용, 없으면 beta 근사
+                    sym_prices = self._all_prices.get(sym, {})
+                    if dt in sym_prices and di > 0:
+                        prev_dates = sorted([d for d in sym_prices if d < dt])
+                        if prev_dates:
+                            prev_p = sym_prices[prev_dates[-1]]
+                            sr = (sym_prices[dt] - prev_p) / prev_p if prev_p > 0 else 0.0
+                        else:
+                            sr = mret * stk["beta"] + np.random.normal(0, 0.005)
+                    else:
+                        sr = mret * stk["beta"] + np.random.normal(0, 0.005)
                     pret+=h["w"]*sr; h["dh"]+=1; h["cp"]*=(1+sr)
                     if h["cp"]>h["hc"]: h["hc"]=h["cp"]
             cw=1.0-sum(h["w"] for h in self.holdings.values())
@@ -151,9 +252,14 @@ class BacktestEngine:
         print(f"  Final: ${self.cap:,.0f}")
 
     def _reb(self,di,dt,regime,ecap,ms,mret):
+        from data_loader import load_stock_metrics
         cands=[]
         for stk in self.stocks:
-            m=sim_metrics(stk,dt,mret,regime)
+            m=load_stock_metrics(
+                symbol=stk["symbol"], date=dt, sector=stk["sector"],
+                country=stk["country"], industry_type=stk["industry_type"],
+                beta=stk["beta"], market_cap=stk["market_cap"])
+            if m is None: continue
             if stk["sym"] in self.holdings: m.is_held=True
             res=run_pipeline(m,0.0,regime,None,self.cap*0.05)
             self.act_cnt[res.action]=self.act_cnt.get(res.action,0)+1
@@ -175,7 +281,9 @@ class BacktestEngine:
                         nh[p.symbol]={"w":p.final_weight,"ep":o["ep"],"hc":o["hc"],"cp":o["cp"],"dh":o["dh"],"ed":o["ed"],
                             "act":next((c.action for c in cands if c.symbol==p.symbol),"HOLD")}
                     else:
-                        nh[p.symbol]={"w":p.final_weight,"ep":100+np.random.normal(0,10),"hc":100,"cp":100,"dh":0,
+                        # 실제 현재가를 entry price로 사용
+                        ep=self._all_prices.get(p.symbol,{}).get(dt,100.0)
+                        nh[p.symbol]={"w":p.final_weight,"ep":ep,"hc":ep,"cp":ep,"dh":0,
                             "ed":dt.strftime("%Y-%m-%d"),"act":next((c.action for c in cands if c.symbol==p.symbol),"HOLD")}
             self.holdings=nh
 
