@@ -201,7 +201,7 @@ MULTI_WARNING_CAP = 0.30                  # L2  WARNING 2개+: 비중 30% 제한
 
 # ─── 포지션 사이징 ───
 
-BASE_WEIGHT = 0.10                        # L2  기본 종목 비중 10%
+BASE_WEIGHT = 0.12                        # [v3.5] 기본 종목 비중 12%
 
 TYPE_CAPS = {
     "A": 0.15,                            # 소형 성장
@@ -944,6 +944,12 @@ def calculate_score(metrics: StockMetrics, macro_alpha: float = 0.0) -> float:
         for factor in weights
     )
 
+    # [v3.5] Beta 근접 보너스: beta가 1.0에 가까울수록 최대 3점 보너스
+    # 포트폴리오 Beta를 0.8~1.2 목표 범위로 유도
+    if metrics.beta is not None:
+        _beta_proximity = 1.0 - min(1.0, abs(metrics.beta - 1.0))
+        total_score += _beta_proximity * 3.0
+
     return round(total_score, 2)
 
 
@@ -1489,7 +1495,7 @@ def _apply_beta_constraint(
         if BETA_LOW_ACTION == "SCALE_UP":
             # 전체 종목 비중을 비례적으로 증가시켜 포트폴리오 베타 보정
             # 고��타 종목에 더 큰 부스트 적용
-            for _ in range(5):  # 최대 5회 반복 조정
+            for _ in range(8):  # 최대 8회 반복 조정
                 tw = sum(c.raw_weight for c in candidates)
                 if tw == 0:
                     break
@@ -1501,7 +1507,7 @@ def _apply_beta_constraint(
                     if c.raw_weight > 0:
                         # 베타 기반 가중 부스트: 고베타 종목일수록 더 많이 증가
                         beta_factor = max(0.5, c.beta)
-                        boost = beta_deficit * 0.6 * beta_factor
+                        boost = beta_deficit * 0.8 * beta_factor
                         old_w = c.raw_weight
                         c.raw_weight *= (1 + boost)
                         if old_w != c.raw_weight:
