@@ -60,7 +60,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from quant_alpha_v3_4_1_phase1 import StockMetrics
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), os.environ.get("BACKTEST_DATA", "data"))
 
 # 섹터명 정규화 (sp500_current.csv → 알고리즘 내부 표준명)
 _SECTOR_MAP = {
