@@ -19,7 +19,7 @@ from quant_alpha_v3_4_1_phase1 import (
 np.random.seed(2024)
 
 import os as _os
-DATA_DIR = _os.path.join(_os.path.dirname(__file__), "data")
+DATA_DIR = _os.path.join(_os.path.dirname(__file__), _os.environ.get("BACKTEST_DATA", "data"))
 
 
 def _normalize_stock(s: dict) -> dict:
@@ -385,7 +385,9 @@ if __name__=="__main__":
             if isinstance(obj,(np.bool_,)): return bool(obj)
             if isinstance(obj,(np.ndarray,)): return obj.tolist()
             return super().default(obj)
-    with open("backtest_results.json","w") as f: json.dump(r,f,indent=2,ensure_ascii=False,cls=NpEncoder)
+    _scenario = _os.environ.get("BACKTEST_DATA", "data")
+    _result_file = f"backtest_results_{_scenario}.json" if _scenario != "data" else "backtest_results.json"
+    with open(_result_file,"w") as f: json.dump(r,f,indent=2,ensure_ascii=False,cls=NpEncoder)
     s=r["summary"]
     print(f"\n{'='*60}\n  결과 요약\n{'='*60}")
     print(f"  전략 CAGR:    {s['cagr_s']:+.2f}%\n  벤치 CAGR:    {s['cagr_b']:+.2f}%\n  초과수익:     {s['excess']:+.2f}%")
