@@ -1,0 +1,145 @@
+{
+  "report_title": "닷컴버블 백테스트 상세 보고서",
+  "period": "1994-01-03 ~ 2006-12-29",
+  "data_source": "data_dotcom",
+  "generated_at": "2026-04-05",
+
+  "summary": {
+    "total_return_strategy": 176.45,
+    "total_return_benchmark": 204.72,
+    "final_value_strategy": 276494133,
+    "final_value_benchmark": 304722413,
+    "initial_capital": 100000000,
+    "cagr_strategy": 8.14,
+    "cagr_benchmark": 8.95,
+    "excess_return": -0.81,
+    "volatility_strategy": 9.84,
+    "volatility_benchmark": 16.68,
+    "sharpe_strategy": 0.421,
+    "sharpe_benchmark": 0.297,
+    "sortino": 0.576,
+    "calmar": 0.359,
+    "mdd_strategy": -22.66,
+    "mdd_benchmark": -49.15,
+    "alpha": 1.68,
+    "beta": 0.497,
+    "info_ratio": -0.082,
+    "tracking_error": 9.92,
+    "win_rate": 45.7,
+    "avg_win": 14.25,
+    "avg_loss": -8.59,
+    "profit_factor": 1.4,
+    "total_trades": 1241,
+    "total_rebalances": 714
+  },
+
+  "validation": {
+    "is_sharpe": 0.419,
+    "oos_sharpe": 0.442,
+    "sharpe_diff": 0.024,
+    "criteria": {
+      "excess_return_positive": {"pass": false, "value": -0.81, "threshold": "> 0"},
+      "sharpe_above_05": {"pass": false, "value": 0.421, "threshold": "> 0.5"},
+      "mdd_within_120pct": {"pass": true, "value": -22.66, "benchmark_mdd": -49.15},
+      "is_oos_sharpe_diff_lt_03": {"pass": true, "value": 0.024, "threshold": "< 0.3"},
+      "beta_in_range": {"pass": false, "value": 0.497, "threshold": "0.8 ~ 1.2"}
+    },
+    "pass_count": "2/5"
+  },
+
+  "yearly_comparison": [
+    {"year": 1994, "strategy": 3.29,  "benchmark": -1.33, "excess": 4.62,   "market": "금리 인상기"},
+    {"year": 1995, "strategy": 31.67, "benchmark": 34.11, "excess": -2.44,  "market": "강세장"},
+    {"year": 1996, "strategy": 9.56,  "benchmark": 20.26, "excess": -10.70, "market": "강세장 (버블 초기)"},
+    {"year": 1997, "strategy": 30.53, "benchmark": 31.01, "excess": -0.48,  "market": "아시아 금융위기"},
+    {"year": 1998, "strategy": 19.76, "benchmark": 26.67, "excess": -6.91,  "market": "LTCM 위기"},
+    {"year": 1999, "strategy": 4.61,  "benchmark": 19.53, "excess": -14.92, "market": "버블 정점"},
+    {"year": 2000, "strategy": 3.38,  "benchmark": -10.14,"excess": 13.52,  "market": "버블 붕괴 시작"},
+    {"year": 2001, "strategy": -5.69, "benchmark": -13.04,"excess": 7.35,   "market": "9/11 + 침체"},
+    {"year": 2002, "strategy": -10.35,"benchmark": -23.37,"excess": 13.02,  "market": "버블 바닥"},
+    {"year": 2003, "strategy": 16.85, "benchmark": 26.38, "excess": -9.53,  "market": "회복기"},
+    {"year": 2004, "strategy": 5.13,  "benchmark": 8.99,  "excess": -3.86,  "market": "안정기"},
+    {"year": 2005, "strategy": 0.93,  "benchmark": 3.00,  "excess": -2.07,  "market": "안정기"},
+    {"year": 2006, "strategy": 4.92,  "benchmark": 14.13, "excess": -9.21,  "market": "상승기"}
+  ],
+
+  "action_distribution": {
+    "HOLD": {"count": 20907, "pct": 62.0},
+    "REDUCE": {"count": 6363, "pct": 18.9},
+    "TREND_BUY": {"count": 3154, "pct": 9.4},
+    "EXIT": {"count": 1556, "pct": 4.6},
+    "S_BUY": {"count": 1057, "pct": 3.1},
+    "STOP_EXIT": {"count": 626, "pct": 1.9},
+    "TREND_HOLD": {"count": 104, "pct": 0.3},
+    "WAIT_DIP": {"count": 61, "pct": 0.2}
+  },
+
+  "crisis_performance": {
+    "dotcom_crash_2000_2002": {
+      "strategy_return": -12.50,
+      "benchmark_return": -40.66,
+      "excess": 28.16,
+      "strategy_mdd": -22.66,
+      "benchmark_mdd": -49.15,
+      "comment": "벤치마크 대비 절반 이하 손실, 방어 탁월"
+    },
+    "bull_market_1995_1999": {
+      "strategy_return": 95.63,
+      "benchmark_return": 131.58,
+      "excess": -35.95,
+      "comment": "버블 상승장에서 시장 추종 실패, Beta 0.497로 노출 부족"
+    },
+    "recovery_2003": {
+      "strategy_return": 16.85,
+      "benchmark_return": 26.38,
+      "excess": -9.53,
+      "comment": "위기 직후 회복기에도 보수적 포지션 유지로 추종 미흡"
+    }
+  },
+
+  "problems": [
+    {
+      "id": 1,
+      "title": "상승장 시장 추종 실패 (Beta 0.497)",
+      "severity": "HIGH",
+      "description": "강세장(1996, 1999, 2003, 2006)에서 10~15%p씩 뒤처짐. REDUCE(18.9%)+EXIT(4.6%) 빈번 → 현금 비중 과다",
+      "affected_years": [1996, 1999, 2003, 2006],
+      "total_underperformance": -44.46
+    },
+    {
+      "id": 2,
+      "title": "방어 이득 < 상승 손실",
+      "severity": "MEDIUM",
+      "description": "위기 3년 방어 +28.2%p vs 상승 5년 손실 -36%p → 순 -7.8%p. 보수적 전략의 구조적 한계",
+      "crisis_defense_gain": 28.16,
+      "bull_opportunity_cost": -35.95,
+      "net": -7.79
+    },
+    {
+      "id": 3,
+      "title": "위기 후 회복 추종 미흡",
+      "severity": "MEDIUM",
+      "description": "Gate/Score가 위기 직후에도 보수적 → 매수 진입 지연. 2003년 회복기 -9.53%p 뒤처짐",
+      "root_cause": "Gate 판정이 과거 데이터 기반이라 레짐 전환 감지 지연"
+    }
+  ],
+
+  "strengths": [
+    {
+      "title": "MDD 방어 탁월",
+      "detail": "벤치마크 -49.15% 폭락 중 전략 -22.66%로 절반 이하 손실"
+    },
+    {
+      "title": "과적합 거의 없음",
+      "detail": "IS/OOS Sharpe diff 0.024 — 매우 안정적 알고리즘"
+    },
+    {
+      "title": "위험조정 수익 우위",
+      "detail": "Sharpe 0.421 > 벤치 0.297, 변동성 9.84% vs 16.68%"
+    },
+    {
+      "title": "Profit Factor 양호",
+      "detail": "1.4배 — 평균 이익(14.25%) > 평균 손실(8.59%)"
+    }
+  ]
+}
