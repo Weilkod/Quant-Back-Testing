@@ -82,15 +82,18 @@ def _print_data_banner(stocks: list):
     price_count = sum(1 for s in stocks if _os.path.exists(
         _os.path.join(DATA_DIR, "1_price", f"{s['symbol']}.csv")))
     bench_ok = _os.path.exists(_os.path.join(DATA_DIR, "5_benchmark", "SP500.csv"))
-    uni_ok   = _os.path.exists(_os.path.join(DATA_DIR, "6_universe", "sp500_current.csv"))
+    import glob as _g
+    uni_files = _g.glob(_os.path.join(DATA_DIR, "6_universe", "sp500_*.csv"))
+    uni_ok   = len(uni_files) > 0
     macro_ok = _os.path.exists(_os.path.join(DATA_DIR, "4_macro", "vix.csv"))
+    _scenario = _os.environ.get("BACKTEST_DATA", "data")
     print("=" * 60)
-    print("  Quant-Alpha v3.4  |  DATA MODE: REAL DATA")
+    print(f"  Quant-Alpha v3.5  |  DATA: {_scenario}")
     print("=" * 60)
-    print(f"  {'✓' if uni_ok   else '?'} data/6_universe/sp500_current.csv  ({len(stocks)} symbols)")
-    print(f"  {'✓' if bench_ok else '?'} data/5_benchmark/SP500.csv")
-    print(f"  {'✓' if price_count else '?'} data/1_price/  ({price_count} files)")
-    print(f"  {'✓' if macro_ok else '?'} data/4_macro/vix.csv")
+    print(f"  {'✓' if uni_ok   else '?'} {_scenario}/6_universe/sp500_*.csv  ({len(stocks)} symbols)")
+    print(f"  {'✓' if bench_ok else '?'} {_scenario}/5_benchmark/SP500.csv")
+    print(f"  {'✓' if price_count else '?'} {_scenario}/1_price/  ({price_count} files)")
+    print(f"  {'✓' if macro_ok else '?'} {_scenario}/4_macro/vix.csv")
     print("=" * 60)
 
 
@@ -108,8 +111,61 @@ def gen_dates(s="2019-01-02",e="2025-12-31"):
         c+=timedelta(days=1)
     return dates
 
+def gen_dates_from_benchmark():
+    """벤치마크 CSV에서 실제 거래일 추출."""
+    import csv as _csv
+    path = _os.path.join(DATA_DIR, "5_benchmark", "SP500.csv")
+    dates = []
+    with open(path) as f:
+        reader = _csv.DictReader(f)
+        for row in reader:
+            try:
+                date_str = row.get("Date") or row.get("date", "")
+                if date_str:
+                    dates.append(datetime.strptime(date_str.strip(), "%Y-%m-%d"))
+            except ValueError:
+                pass
+    dates.sort()
+    return dates
+
 def regime_params(d):
     y,m=d.year,d.month
+    # 닷컴버블 기간 (1994-2006)
+    if y<=1996: return {"mu":0.0008,"sig":0.008,"vix":14,"reg":3}
+    if y==1997 and m<=9: return {"mu":0.0010,"sig":0.010,"vix":20,"reg":3}
+    if y==1997: return {"mu":-0.0005,"sig":0.020,"vix":30,"reg":4}  # 아시아 금융위기
+    if y==1998 and m<=9: return {"mu":0.0008,"sig":0.012,"vix":22,"reg":5}
+    if y==1998: return {"mu":-0.0010,"sig":0.025,"vix":35,"reg":6}  # LTCM
+    if y==1999: return {"mu":0.0012,"sig":0.012,"vix":24,"reg":1}   # 버블 팽창
+    if y==2000 and m<=3: return {"mu":0.0015,"sig":0.015,"vix":26,"reg":1}  # 버블 정점
+    if y==2000: return {"mu":-0.0010,"sig":0.018,"vix":28,"reg":4}  # 버블 붕괴 시작
+    if y==2001 and m<=3: return {"mu":-0.0012,"sig":0.020,"vix":30,"reg":6}
+    if y==2001 and m<=9: return {"mu":-0.0008,"sig":0.016,"vix":28,"reg":4}
+    if y==2001: return {"mu":-0.0020,"sig":0.030,"vix":40,"reg":6}  # 9/11
+    if y==2002 and m<=6: return {"mu":-0.0015,"sig":0.022,"vix":32,"reg":6}  # 버블 바닥
+    if y==2002: return {"mu":-0.0010,"sig":0.020,"vix":35,"reg":6}
+    if y==2003 and m<=3: return {"mu":-0.0005,"sig":0.015,"vix":28,"reg":4}
+    if y==2003: return {"mu":0.0010,"sig":0.010,"vix":20,"reg":1}   # 회복
+    if y==2004: return {"mu":0.0006,"sig":0.008,"vix":16,"reg":3}
+    if y==2005: return {"mu":0.0004,"sig":0.007,"vix":14,"reg":3}
+    if y==2006: return {"mu":0.0006,"sig":0.008,"vix":13,"reg":3}
+    # 서브프라임 기간 (2007-2014)
+    if y==2007 and m<=6: return {"mu":0.0005,"sig":0.009,"vix":14,"reg":3}
+    if y==2007: return {"mu":-0.0008,"sig":0.016,"vix":25,"reg":4}  # 위기 시작
+    if y==2008 and m<=3: return {"mu":-0.0015,"sig":0.022,"vix":28,"reg":6}
+    if y==2008 and m<=9: return {"mu":-0.0020,"sig":0.030,"vix":35,"reg":6}  # 리먼
+    if y==2008: return {"mu":-0.0035,"sig":0.045,"vix":65,"reg":6}  # 패닉
+    if y==2009 and m<=3: return {"mu":-0.0025,"sig":0.040,"vix":50,"reg":6}  # 바닥
+    if y==2009 and m<=6: return {"mu":0.0020,"sig":0.025,"vix":35,"reg":1}   # 반등
+    if y==2009: return {"mu":0.0015,"sig":0.018,"vix":28,"reg":1}
+    if y==2010: return {"mu":0.0008,"sig":0.014,"vix":22,"reg":5}
+    if y==2011 and m<=6: return {"mu":0.0004,"sig":0.012,"vix":18,"reg":3}
+    if y==2011: return {"mu":-0.0005,"sig":0.020,"vix":32,"reg":4}  # 유럽 위기
+    if y==2012: return {"mu":0.0006,"sig":0.010,"vix":17,"reg":3}
+    if y==2013: return {"mu":0.0008,"sig":0.008,"vix":14,"reg":3}
+    if y==2014: return {"mu":0.0005,"sig":0.008,"vix":14,"reg":3}
+    # 기본 기간 (2015-2025)
+    if y<=2018: return {"mu":0.0005,"sig":0.009,"vix":15,"reg":3}
     if y==2019: return {"mu":0.0008,"sig":0.010,"vix":16,"reg":3}
     if y==2020 and m<=3: return {"mu":-0.004,"sig":0.040,"vix":65,"reg":6}
     if y==2020 and m<=6: return {"mu":0.0025,"sig":0.022,"vix":30,"reg":1}
@@ -177,13 +233,14 @@ def sim_metrics(stk,date,mkt_ret,reg):
 class BacktestEngine:
     def __init__(self,cap=100_000_000):
         self.cap0=cap; self.cap=cap
-        self.dates=gen_dates()
 
         # 실데이터 로드
         from data_loader import load_universe, load_benchmark
         raw = load_universe()
         self.stocks = [_normalize_stock(s) for s in raw]
-        bench_dict = load_benchmark(self.dates)
+        bench_dict = load_benchmark([])
+        # 벤치마크 데이터에서 날짜 추출 (실제 거래일 사용)
+        self.dates = gen_dates_from_benchmark()
         self.bench = _align_bench_to_dates(bench_dict, self.dates)
 
         # 종목별 일별 가격 미리 로드 (일별 P&L 계산용)

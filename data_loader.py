@@ -56,6 +56,7 @@
 import os
 import csv
 import json
+import glob as _glob
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from quant_alpha_v3_4_1_phase1 import StockMetrics
@@ -243,7 +244,8 @@ def load_universe() -> List[dict]:
     Returns:
         [{"symbol", "sector", "country", "industry_type", "beta", "market_cap"}, ...]
     """
-    path = os.path.join(DATA_DIR, "6_universe", "sp500_current.csv")
+    _univ_files = sorted(_glob.glob(os.path.join(DATA_DIR, "6_universe", "sp500_*.csv")))
+    path = _univ_files[0] if _univ_files else os.path.join(DATA_DIR, "6_universe", "sp500_current.csv")
     price_dir = os.path.join(DATA_DIR, "1_price")
 
     # S&P500 벤치마크 가격 (Beta 계산용)
@@ -532,6 +534,8 @@ def load_stock_metrics(
     earnings_metric = None
     has_earnings = False
     es_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_earnings_surprise.csv")
+    if not os.path.exists(es_path):
+        es_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_earnings.csv")
     if os.path.exists(es_path):
         with open(es_path) as f:
             reader = csv.DictReader(f)
@@ -598,6 +602,8 @@ def load_stock_metrics(
     si_composite = None
     has_si = False
     si_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_short_interest.csv")
+    if not os.path.exists(si_path):
+        si_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_short.csv")
     if os.path.exists(si_path):
         with open(si_path) as f:
             reader = csv.DictReader(f)
@@ -718,9 +724,13 @@ def load_macro_data(date: datetime) -> dict:
         "eu_rate":    "rate_ecb",
     }
 
+    _macro_fallbacks = {"gold_fred": "gold"}
+
     result = {}
     for key, fname in series_map.items():
         path = os.path.join(DATA_DIR, "4_macro", f"{fname}.csv")
+        if not os.path.exists(path) and fname in _macro_fallbacks:
+            path = os.path.join(DATA_DIR, "4_macro", f"{_macro_fallbacks[fname]}.csv")
         if os.path.exists(path):
             result[key] = _get_latest_value(path, date)
         else:
