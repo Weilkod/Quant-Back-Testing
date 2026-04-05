@@ -34,14 +34,22 @@ from dataclasses import dataclass, field
 
 # ─── Phase 1: Survival Gate (5개 게이트 — 이슈 #9 반영) ───
 
-FRESHNESS_WARNING_DAYS = 90               # L2  WARNING: 91~150일
-FRESHNESS_FAIL_DAYS = 150                 # L2  FAIL_STALE: >150일
+FRESHNESS_WARNING_DAYS = 120              # [v3.5] WARNING: 121~365일 (90→120)
+FRESHNESS_FAIL_DAYS = 365                 # [v3.5] FAIL→WARNING: 연간보고서 주기 반영 (150→365)
 
 LIQUIDITY_WARNING_DAYS = 0.5              # L2  WARNING: 0.5~2.0일
 LIQUIDITY_FAIL_DAYS = 2.0                 # L2  FAIL_LIQUIDITY: >2.0일
 LIQUIDITY_PARTICIPATION_RATE = 0.20       # L2  일평균 거래량 대비 참여율 가정
 
-ROA_MINIMUM = 0.05                        # L1  ROA ≥ 5% (ROIC 결측 시)
+ROA_MINIMUM = 0.03                        # [v3.5] ROA ≥ 3% (WARNING 기준, 5%→3%)
+ROA_MINIMUM_FAIL = 0.00                   # [v3.5] ROA < 0%이면 HARD FAIL (순손실만)
+
+# ─── Gate ① 추세 그라데이션 [v3.5] ───
+GATE_TREND_DEEP_FAIL_MA200_RATIO = 0.80   # MA200 대비 20%+ 하락 시만 FAIL
+GATE_TREND_DEEP_FAIL_MA120_RATIO = 0.85   # MA120 대비 15%+ 하락 시만 FAIL
+
+# ─── Gate ② 수익성 그라데이션 [v3.5] ───
+GATE_ROIC_HARD_FAIL_RATIO = 0.30          # ROIC < WACC × 0.3이면 HARD FAIL (극단적 저수익만)
 
 
 # ─── Phase 4: 스코어링 가중치 (10개 팩터, 합계 100) ───
@@ -66,17 +74,15 @@ VALUATION_ALPHA_SENSITIVITY = 2           # L2  alpha × 이 값이 valuation에
 
 # ─── Phase 5: 실행 판단 임계값 ───
 
-SCORE_BUY_THRESHOLD = 70                  # L3  S_BUY / TREND_BUY / TREND_HOLD 진입
-                                          #     [P1-1] 85→70: 백테스트 S_BUY 0건 해소
-SCORE_HOLD_THRESHOLD = 55                 # L3  HOLD vs REDUCE 경계
-                                          #     [P1-2] 70→55: BUY 하향에 연동 조정
+SCORE_BUY_THRESHOLD = 60                  # L3  [v3.5] 70→60: 재분배 후 점수 분포 반영
+SCORE_HOLD_THRESHOLD = 45                 # L3  [v3.5] 55→45: BUY 하향에 연동 조정
 
 
 # ─── RSI 파라미터 [구 ai_soft] ───
 
 RSI_PERIOD = 14                           # L1  Wilder(1978) 원저 기준
-RSI_OVERSOLD = 45                         # L2  Phase 5: S_BUY 분기
-RSI_OVERBOUGHT = 75                       # L2  Phase 5: TREND_HOLD/WAIT_DIP 분기
+RSI_OVERSOLD = 40                         # L2  [v3.5] 45→40 (과적합 방지)
+RSI_OVERBOUGHT = 80                       # L2  [v3.5] 75→80 (과적합 방지)
 RSI_NORM_LOW = 30                         # L2  Phase 4: RSI 정규화 하한
 RSI_NORM_HIGH = 70                        # L2  Phase 4: RSI 정규화 상한
 
@@ -84,8 +90,8 @@ RSI_NORM_HIGH = 70                        # L2  Phase 4: RSI 정규화 상한
 # ─── 모멘텀 파라미터 [구 ai_soft] ───
 
 MOMENTUM_DAYS = 62                        # L3  약 3개월
-MOMENTUM_NORM_LOW = -0.30                 # L3  정규화 하한
-MOMENTUM_NORM_HIGH = 0.30                 # L3  정규화 상한
+MOMENTUM_NORM_LOW = -0.20                 # L3  [v3.5] -0.30→-0.20 (분산 확대)
+MOMENTUM_NORM_HIGH = 0.20                 # L3  [v3.5] 0.30→0.20 (분산 확대)
 
 
 # ─── 컨센서스 파라미터 [구 ai_soft] ───
@@ -133,8 +139,8 @@ SI_HIGH_CHANGE_WEIGHT = 0.8               # L3  고SIR 시 change 가중치
 
 MISSING_FACTOR_NEUTRAL_SCORE = 0.5        # L3  결측 시 0.0(최악) 대신 0.5(중립) 부여
                                           #     [P1-4] 데이터 없음 ≠ 최악, 통계적 중립
-REDISTRIBUTE_MISSING_WEIGHTS = False      # [P1-4] 중립 점수 부여 시 재분배 불필요
-                                          #     True: 기존 v3.4 방식 (결측 가중치 재분배)
+REDISTRIBUTE_MISSING_WEIGHTS = True       # [v3.5] 신호 데이터 전무 → 재분배 활성화
+                                          #     True: 결측 가중치를 실데이터 팩터에 재분배
                                           #     False: v3.4.1 방식 (가중치 유지, 중립 점수)
 
 
@@ -174,8 +180,8 @@ RATCHET_OVERRIDE_REGIMES = [6]            # L2  이 국면 진입 시 래칫 무
 
 # ─── 포트폴리오 관리 (항목 2 + 이슈 #3 반영) ───
 
-MAX_POSITIONS = 20                        # L2  동시 보유 최대 종목 수
-MIN_POSITIONS = 5                         # L2  최소 분산 확보
+MAX_POSITIONS = 30                        # [v3.5] 20→30 동시 보유 최대 종목 수
+MIN_POSITIONS = 8                         # [v3.5] 5→8 최소 분산 확보
 
 MAX_SECTOR_EXPOSURE = 0.30                # L2  단일 섹터 최대 30%
 MAX_COUNTRY_EXPOSURE = 0.50               # L2  단일 국가 최대 50%
@@ -186,7 +192,7 @@ TARGET_BETA_MAX = 1.20                    # L2  포트폴리오 베타 상한
 EXTREME_BETA_THRESHOLD = 2.50             # L2  극단적 고베타 기준
 EXTREME_BETA_CAP = 0.05                   # L2  극단 베타 종목 최대 비중 5%
 
-BETA_LOW_ACTION = "WARNING_ONLY"          # "WARNING_ONLY" 또는 "REDUCE"
+BETA_LOW_ACTION = "SCALE_UP"              # [v3.5] "SCALE_UP": 저베타 시 고베타 종목 비중 증가
 BETA_HIGH_MAX_REDUCTION_RATIO = 0.50      # L2  한 번에 최대 50% 비중 축소
 
 SINGLE_WARNING_CAP = 0.50                 # L2  WARNING 1개: 비중 50% 제한
@@ -260,8 +266,8 @@ NUM_REGIMES = 6
 
 # ─── 버전 정보 (이슈 #10 반영) ───
 
-VERSION = "3.4.1"
-VERSION_TAG = "v3.4.1-Phase1"
+VERSION = "3.5.0"
+VERSION_TAG = "v3.5.0"
 PATCH_HISTORY = [
     "Patch 1: VIX 바이너리 킬스위치 → 4단계 그라데이션",
     "Patch 2: 컨센서스 결측치 동적 가중치 재분배",
@@ -270,6 +276,16 @@ PATCH_HISTORY = [
     "Phase1-2: SCORE_HOLD_THRESHOLD 70→55 (연동 조정)",
     "Phase1-3: Gate ③ OCF ≤ 0 FAIL→WARNING (Gate 과살 완화)",
     "Phase1-4: 결측 팩터 0.0→0.5 중립 부여 (재분배 비활성)",
+    "v3.5-1: REGIME_EQUITY_CAP 전면 상향 (현금 과다 해소)",
+    "v3.5-2: WARNING 액션 BUY 차단 제거 (비중 제한만 적용)",
+    "v3.5-3: 결측 가중치 재분배 활성화 (신호 팩터 무력화 해소)",
+    "v3.5-4: SCORE_BUY 70→60, SCORE_HOLD 55→45",
+    "v3.5-5: Gate ① 추세 3단계 그라데이션 (심층 이탈만 FAIL)",
+    "v3.5-6: Gate ② 수익성 완화 (ROIC<WACC*0.5 AND ROA<2%만 FAIL)",
+    "v3.5-7: 동적 WACC (risk-free + beta × ERP)",
+    "v3.5-8: 실제 Beta 계산 (252일 회귀분석)",
+    "v3.5-9: Beta scale-up 포트폴리오 관리",
+    "v3.5-10: 리밸런싱 5일, 레짐 변경 트리거",
 ]
 
 
@@ -548,12 +564,12 @@ REGIME_NAMES = {
 }
 
 REGIME_EQUITY_CAP = {
-    1: (0.50, 0.70),
-    2: (0.20, 0.40),
-    3: (0.60, 0.80),
-    4: (0.30, 0.40),
-    5: (0.50, 0.70),
-    6: (0.00, 0.10),
+    1: (0.70, 0.90),    # 강세초기: 적극 투자
+    2: (0.40, 0.60),    # 바닥/함정: 역발상 기회
+    3: (0.80, 0.95),    # 실적장세: 최대 노출
+    4: (0.50, 0.70),    # 방어전환: 의미있는 투자 유지
+    5: (0.70, 0.90),    # 구조적성장: 적극 투자
+    6: (0.30, 0.50),    # 약세진입: 회복 대비 (v3.4: 0-10% → v3.5: 30-50%)
 }
 
 
@@ -706,32 +722,36 @@ def evaluate_survival_gate(
     warnings = []
     fail_code = None
 
-    # ── Gate ① 추세 ──
-    if metrics.price < metrics.ma200 and metrics.price < metrics.ma120:
-        details["gate_1_trend"] = "FAIL"
-        fail_code = fail_code or "FAIL_TREND"
-    elif metrics.price < metrics.ma200 or metrics.price < metrics.ma120:
+    # ── Gate ① 추세 [v3.5: FAIL 제거, WARNING만] ──
+    # 하락 리스크는 트레일링 스탑 + 모멘텀 점수 감점으로 3중 방어
+    below_ma200 = metrics.price < metrics.ma200
+    below_ma120 = metrics.price < metrics.ma120
+
+    if below_ma200 and below_ma120:
+        # 양쪽 MA 이탈: WARNING (비중 제한만, 투자 가능)
         details["gate_1_trend"] = "WARNING"
         warnings.append("TREND")
+    elif below_ma200 or below_ma120:
+        details["gate_1_trend"] = "PASS"
     else:
         details["gate_1_trend"] = "PASS"
 
-    # ── Gate ② 수익성 ──
+    # ── Gate ② 수익성 [v3.5: FAIL 제거, WARNING만] ──
+    # ROIC 팩터(18점)가 점수에서 자연 감점하므로 Gate는 비중 제한만 담당
     roic_pass = False
+
     if metrics.roic is not None and metrics.wacc is not None:
         roic_pass = metrics.roic >= metrics.wacc
     if not roic_pass:
         if metrics.roa is not None and metrics.roa >= ROA_MINIMUM:
             roic_pass = True
 
-    if not roic_pass:
-        details["gate_2_profitability"] = "FAIL"
-        if metrics.roic is not None:
-            fail_code = fail_code or "FAIL_ROIC"
-        else:
-            fail_code = fail_code or "FAIL_ROA"
-    else:
+    if roic_pass:
         details["gate_2_profitability"] = "PASS"
+    else:
+        # FAIL 대신 WARNING: 비중 제한만 적용, 투자 차단하지 않음
+        details["gate_2_profitability"] = "WARNING"
+        warnings.append("LOW_PROFITABILITY")
 
     # ── Gate ③ 현금흐름 ──
     # ── Gate ③ 현금흐름 [P1-3: FAIL→WARNING 전환] ──
@@ -746,10 +766,11 @@ def evaluate_survival_gate(
     else:
         details["gate_3_cashflow"] = "PASS"
 
-    # ── Gate ④ 데이터 신선도 ──
+    # ── Gate ④ 데이터 신선도 [v3.5: FAIL→WARNING, 연간보고서 주기 반영] ──
     if metrics.days_since_report > FRESHNESS_FAIL_DAYS:
-        details["gate_4_freshness"] = "FAIL"
-        fail_code = fail_code or "FAIL_STALE"
+        # 365일+ 초과해도 WARNING만 (연간 보고서 주기상 정상)
+        details["gate_4_freshness"] = "WARNING"
+        warnings.append("VERY_STALE_DATA")
     elif metrics.days_since_report > FRESHNESS_WARNING_DAYS:
         details["gate_4_freshness"] = "WARNING"
         warnings.append("STALE_DATA")
@@ -877,7 +898,7 @@ def calculate_score(metrics: StockMetrics, macro_alpha: float = 0.0) -> float:
     scores["profit_trend"] = _clamp(metrics.profit_trend_yoy)
 
     # 3. 성장 (CAGR 정규화)
-    scores["growth"] = normalize_factor(metrics.growth_cagr, -0.10, 0.30)
+    scores["growth"] = normalize_factor(metrics.growth_cagr, -0.05, 0.25)  # [v3.5] 범위 축소
 
     # 4. 컨센서스
     if metrics.has_consensus and metrics.consensus_up_ratio is not None:
@@ -1034,14 +1055,11 @@ def determine_action(
             stop_triggered=True, reasons=[stop_result.reason],
         )
 
-    # ── Priority 3: Gate WARNING ──
-    if gate_result.overall in ("WARNING", "WARNING_MULTI"):
-        return ActionResult(
-            action="WARNING", score=score, gate_result=gate_result,
-            reasons=[f"Gate WARNING (count={gate_result.warning_count})"],
-        )
+    # ── Priority 3: Gate WARNING → 비중 제한만, BUY 차단하지 않음 [v3.5] ──
+    # WARNING은 calculate_raw_weight()의 warning_count로 비중 제한됨
+    # 점수 기반 BUY/HOLD 로직 그대로 진행
 
-    # ── Priority 4~7: 고점수 분기 (score ≥ 85) ──
+    # ── Priority 4~7: 고점수 분기 (score ≥ BUY threshold) ──
     if score >= SCORE_BUY_THRESHOLD:
 
         if metrics.rsi <= RSI_OVERSOLD:
@@ -1056,39 +1074,35 @@ def determine_action(
                 reasons=[f"score={score}, RSI={metrics.rsi:.1f} (정상 추세)"],
             )
 
-        # RSI ≥ 75: TREND_HOLD vs WAIT_DIP
+        # RSI ≥ 80: TREND_HOLD vs WAIT_DIP [v3.5: 조건 단순화]
         trend_aligned = (
             metrics.price > metrics.ma20 > metrics.ma50 > metrics.ma120
         )
-        fundamental_strong = (
-            metrics.roic_score_normalized >= TREND_HOLD_ROIC_MIN
-            and metrics.profit_trend_normalized >= TREND_HOLD_PROFIT_MIN
-        )
 
-        if trend_aligned and fundamental_strong:
-            if metrics.is_held:
-                return ActionResult(
-                    action="TREND_HOLD", score=score, gate_result=gate_result,
-                    reasons=[
-                        f"score={score}, RSI={metrics.rsi:.1f} (과매수)",
-                        "4중 정배열 확인, 펀더멘털 확인, 기보유 → 보유 유지",
-                    ],
-                )
-            else:
-                return ActionResult(
-                    action="WAIT_DIP", score=score, gate_result=gate_result,
-                    reasons=[
-                        f"score={score}, RSI={metrics.rsi:.1f} (과매수)",
-                        "조건 충족이나 신규 진입 → 조정 대기",
-                    ],
-                )
+        if trend_aligned and metrics.is_held:
+            # [v3.5] 과적합된 ROIC/profit_trend 조건 제거, 정배열+기보유만 확인
+            return ActionResult(
+                action="TREND_HOLD", score=score, gate_result=gate_result,
+                reasons=[
+                    f"score={score}, RSI={metrics.rsi:.1f} (과매수)",
+                    "4중 정배열 확인, 기보유 → 보유 유지",
+                ],
+            )
+        elif trend_aligned:
+            # 정배열이지만 신규 → TREND_BUY (WAIT_DIP 대신 적극 진입)
+            return ActionResult(
+                action="TREND_BUY", score=score, gate_result=gate_result,
+                reasons=[
+                    f"score={score}, RSI={metrics.rsi:.1f} (과매수지만 정배열)",
+                    "정배열 확인, 신규 진입 허용",
+                ],
+            )
         else:
             return ActionResult(
                 action="WAIT_DIP", score=score, gate_result=gate_result,
                 reasons=[
                     f"score={score}, RSI={metrics.rsi:.1f} (과매수)",
-                    f"정배열={'O' if trend_aligned else 'X'}, "
-                    f"펀더멘털={'O' if fundamental_strong else 'X'}",
+                    "정배열 미충족 → 조정 대기",
                 ],
             )
 
@@ -1470,9 +1484,40 @@ def _apply_beta_constraint(
                     "detail": f"3회 조정 후에도 베타 {equity_beta:.2f} > {TARGET_BETA_MAX}",
                 })
 
-    # ── 저베타: 경고만 (이슈 #3) ──
+    # ── 저베타: scale-up [v3.5] ──
     elif equity_beta < TARGET_BETA_MIN:
-        if BETA_LOW_ACTION == "WARNING_ONLY":
+        if BETA_LOW_ACTION == "SCALE_UP":
+            # 전체 종목 비중을 비례적으로 증가시켜 포트폴리오 베타 보정
+            # 고��타 종목에 더 큰 부스트 적용
+            for _ in range(5):  # 최대 5회 반복 조정
+                tw = sum(c.raw_weight for c in candidates)
+                if tw == 0:
+                    break
+                equity_beta = sum(c.raw_weight * c.beta for c in candidates) / tw
+                if equity_beta >= TARGET_BETA_MIN:
+                    break
+                beta_deficit = TARGET_BETA_MIN - equity_beta
+                for c in candidates:
+                    if c.raw_weight > 0:
+                        # 베타 기반 가중 부스트: 고베타 종목일수록 더 많이 증가
+                        beta_factor = max(0.5, c.beta)
+                        boost = beta_deficit * 0.6 * beta_factor
+                        old_w = c.raw_weight
+                        c.raw_weight *= (1 + boost)
+                        if old_w != c.raw_weight:
+                            constraints_log.append({
+                                "type": "BETA_SCALE_UP",
+                                "affected": c.symbol,
+                                "detail": f"beta={c.beta:.2f}, 비중 {old_w:.4f}→{c.raw_weight:.4f}",
+                            })
+            beta_warning = "LOW_BETA_SCALED"
+            constraints_log.append({
+                "type": "BETA_LOW_SCALED",
+                "current_beta": equity_beta,
+                "target_min": TARGET_BETA_MIN,
+                "detail": f"equity_only_beta={equity_beta:.2f} < {TARGET_BETA_MIN}. SCALE_UP 적용.",
+            })
+        else:
             beta_warning = "LOW_BETA"
             constraints_log.append({
                 "type": "BETA_LOW_WARNING",
@@ -1481,7 +1526,7 @@ def _apply_beta_constraint(
                 "action": "WARNING_ONLY",
                 "detail": (
                     f"equity_only_beta={equity_beta:.2f} < {TARGET_BETA_MIN}. "
-                    "저베타 과다 감지. 방어적 섹터 편중 가능성. 수동 검토 권고."
+                    "저베타 과다 감지."
                 ),
             })
 

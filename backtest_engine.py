@@ -200,10 +200,10 @@ class BacktestEngine:
 
     def run(self):
         print("="*60)
-        print(f"  Quant-Alpha v3.4 Backtest: {self.dates[0]:%Y-%m-%d} ~ {self.dates[-1]:%Y-%m-%d}")
+        print(f"  Quant-Alpha v3.5 Backtest: {self.dates[0]:%Y-%m-%d} ~ {self.dates[-1]:%Y-%m-%d}")
         print(f"  Universe: {len(self.stocks)} stocks, Capital: ${self.cap0:,.0f}")
         print("="*60)
-        peak=self.cap0; reb_int=10
+        peak=self.cap0; reb_int=5  # [v3.5] 10→5 (주간 리밸런싱)
         for di,dt in enumerate(self.dates):
             rp=regime_params(dt); reg=rp["reg"]
             vix=max(10,rp["vix"]+np.random.normal(0,3))
@@ -245,14 +245,17 @@ class BacktestEngine:
                     self.trades.append({"d":dt.strftime("%Y-%m-%d"),"s":sym,"a":"STOP_EXIT","pnl":pnl,"dh":h["dh"],"r":regime})
                     self.act_cnt["STOP_EXIT"]=self.act_cnt.get("STOP_EXIT",0)+1
                     del self.holdings[sym]
-            # Tier3: rebalance
-            if di%reb_int==0 and di>0:
+            # Tier3: rebalance [v3.5: 레짐 변경 시 즉시 리밸런싱]
+            regime_changed = (self.reg_h[-2] != regime if len(self.reg_h) >= 2 else False)
+            if (di%reb_int==0 or regime_changed) and di>0:
                 self.reb_cnt+=1; self._reb(di,dt,regime,ecap,ms,mret)
         print(f"\n  Rebalances: {self.reb_cnt}, Trades: {len(self.trades)}")
         print(f"  Final: ${self.cap:,.0f}")
 
     def _reb(self,di,dt,regime,ecap,ms,mret):
         from data_loader import load_stock_metrics
+        # [v3.5] macro_alpha: ms를 alpha로 변환 (macro_score 범위 -1~+1)
+        macro_alpha = ms * 0.5  # 매크로 스코어의 절반을 alpha로 전달
         cands=[]
         for stk in self.stocks:
             m=load_stock_metrics(
@@ -261,7 +264,7 @@ class BacktestEngine:
                 beta=stk["beta"], market_cap=stk["market_cap"])
             if m is None: continue
             if stk["sym"] in self.holdings: m.is_held=True
-            res=run_pipeline(m,0.0,regime,None,self.cap*0.05)
+            res=run_pipeline(m,macro_alpha,regime,None,self.cap*0.05)
             self.act_cnt[res.action]=self.act_cnt.get(res.action,0)+1
             rw=calculate_raw_weight(res.action,res.score,stk["itype"],res.gate_result.warning_count)
             if rw>0 or m.is_held:
@@ -281,7 +284,6 @@ class BacktestEngine:
                         nh[p.symbol]={"w":p.final_weight,"ep":o["ep"],"hc":o["hc"],"cp":o["cp"],"dh":o["dh"],"ed":o["ed"],
                             "act":next((c.action for c in cands if c.symbol==p.symbol),"HOLD")}
                     else:
-                        # 실제 현재가를 entry price로 사용
                         ep=self._all_prices.get(p.symbol,{}).get(dt,100.0)
                         nh[p.symbol]={"w":p.final_weight,"ep":ep,"hc":ep,"cp":ep,"dh":0,
                             "ed":dt.strftime("%Y-%m-%d"),"act":next((c.action for c in cands if c.symbol==p.symbol),"HOLD")}
