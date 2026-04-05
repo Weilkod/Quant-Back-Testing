@@ -58,7 +58,7 @@ import csv
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from quant_alpha_v3_4_unified import StockMetrics
+from quant_alpha_v3_4_1_phase1 import StockMetrics
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -87,6 +87,112 @@ _SECTOR_MAP = {
 
 def _normalize_sector(raw: str) -> str:
     return _SECTOR_MAP.get(raw, raw)
+
+
+# ══════════���═══════════════════════════════════════════════════
+# [v3.5] Beta 계산 — 252일 수익률 회귀분석
+# ═════��══════════════════════���═════════════════════════════════
+
+def _compute_beta(symbol: str, bench_prices: dict, lookback: int = 252) -> float:
+    """
+    종목의 252일 수익률과 S&P500 수익률로 Beta 계산.
+    Beta = Cov(Ri, Rm) / Var(Rm)
+
+    Returns:
+        float — beta 값 (데이터 부족 시 1.0 반환)
+    """
+    price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
+    if not os.path.exists(price_path):
+        return 1.0
+
+    # 종목 가격 로드
+    stock_prices = {}
+    with open(price_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                date_str = row.get("Date") or row.get("date", "")
+                close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
+                if date_str and close_str:
+                    dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+                    stock_prices[dt] = float(close_str)
+            except (ValueError, KeyError):
+                pass
+
+    # 공통 날짜 정렬
+    common_dates = sorted(set(stock_prices.keys()) & set(bench_prices.keys()))
+    if len(common_dates) < lookback + 1:
+        return 1.0
+
+    # 최근 lookback+1일만 사용
+    recent = common_dates[-(lookback + 1):]
+    stock_rets = []
+    bench_rets = []
+    for i in range(1, len(recent)):
+        sr = (stock_prices[recent[i]] - stock_prices[recent[i-1]]) / stock_prices[recent[i-1]]
+        br = (bench_prices[recent[i]] - bench_prices[recent[i-1]]) / bench_prices[recent[i-1]]
+        stock_rets.append(sr)
+        bench_rets.append(br)
+
+    if len(bench_rets) < 60:
+        return 1.0
+
+    # Beta = Cov(Ri, Rm) / Var(Rm)
+    n = len(bench_rets)
+    mean_s = sum(stock_rets) / n
+    mean_b = sum(bench_rets) / n
+    cov = sum((s - mean_s) * (b - mean_b) for s, b in zip(stock_rets, bench_rets)) / n
+    var_b = sum((b - mean_b) ** 2 for b in bench_rets) / n
+
+    if var_b < 1e-10:
+        return 1.0
+
+    beta = cov / var_b
+    return max(0.1, min(3.0, beta))  # 극단값 클램핑
+
+
+def _estimate_market_cap(symbol: str) -> float:
+    """
+    [v3.5] 최신 가격과 재무 데이터로 시가총액 추정.
+    net_income과 EPS로 주식수 역산 → 시가총액 계산.
+    """
+    price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
+    fund_path = os.path.join(DATA_DIR, "2_fundamental", f"{symbol}.csv")
+
+    # 최신 주가 가져오기
+    latest_price = None
+    if os.path.exists(price_path):
+        with open(price_path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
+                    if close_str:
+                        latest_price = float(close_str)
+                except (ValueError, KeyError):
+                    pass
+
+    if latest_price is None:
+        return 50e9  # 기본값
+
+    # EPS와 net_income에서 shares outstanding 역산
+    if os.path.exists(fund_path):
+        with open(fund_path) as f:
+            reader = csv.DictReader(f)
+            latest_row = None
+            for row in reader:
+                latest_row = row
+            if latest_row:
+                try:
+                    eps = float(latest_row.get("eps") or 0)
+                    net_income = float(latest_row.get("net_income") or 0)
+                    if eps != 0 and net_income != 0:
+                        shares = abs(net_income / eps)
+                        return latest_price * shares
+                except (ValueError, KeyError, TypeError):
+                    pass
+
+    return 50e9  # 기본값
 
 
 # ══════════════════════════════════════════════════════════════
@@ -131,13 +237,31 @@ def load_benchmark(dates: list) -> dict:
 
 def load_universe() -> List[dict]:
     """
-    투자 유니버스 로드. 가격 파일이 존재하는 종목만 반환.
+    투자 유니버스 로드. 가격 파일이 ��재하는 종목만 반환.
+    [v3.5] 실제 Beta, market_cap, industry_type 계산.
 
     Returns:
         [{"symbol", "sector", "country", "industry_type", "beta", "market_cap"}, ...]
     """
     path = os.path.join(DATA_DIR, "6_universe", "sp500_current.csv")
     price_dir = os.path.join(DATA_DIR, "1_price")
+
+    # S&P500 벤치마크 가격 (Beta 계산용)
+    bench_path = os.path.join(DATA_DIR, "5_benchmark", "SP500.csv")
+    bench_prices = {}
+    if os.path.exists(bench_path):
+        with open(bench_path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    date_str = row.get("Date") or row.get("date", "")
+                    close_str = row.get("Close") or row.get("close") or row.get("Adj Close", "")
+                    if date_str and close_str:
+                        dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+                        bench_prices[dt] = float(close_str)
+                except (ValueError, KeyError):
+                    pass
+
     stocks = []
     with open(path) as f:
         reader = csv.DictReader(f)
@@ -145,18 +269,35 @@ def load_universe() -> List[dict]:
             sym = row.get("symbol", "").strip()
             if not sym:
                 continue
-            # 가격 파일 있는 종목만 포함
             if not os.path.exists(os.path.join(price_dir, f"{sym}.csv")):
                 continue
+
             raw_sector = row.get("sector", "Technology").strip()
             sector = _normalize_sector(raw_sector)
+
+            # [v3.5] 실제 Beta 계산
+            beta = _compute_beta(sym, bench_prices)
+
+            # [v3.5] 시가총액 추정
+            market_cap = _estimate_market_cap(sym)
+
+            # [v3.5] industry_type 동적 할당
+            if market_cap > 500e9:
+                industry_type = "D"    # 메가캡, 고확신
+            elif market_cap > 100e9:
+                industry_type = "C"    # 대형
+            elif market_cap > 30e9:
+                industry_type = "B"    # 중형
+            else:
+                industry_type = "A"    # 소형 성장
+
             stocks.append({
                 "symbol": sym,
                 "sector": sector,
                 "country": "US",
-                "industry_type": "C",   # S&P500 대형주 기본값
-                "beta": 1.0,            # 가격 데이터 없을 경우 기본값
-                "market_cap": 50e9,     # 기본값 (대형주)
+                "industry_type": industry_type,
+                "beta": round(beta, 3),
+                "market_cap": market_cap,
             })
     return stocks
 
@@ -258,6 +399,7 @@ def load_stock_metrics(
     pe_relative = 1.0
     efficiency = 0.5
     days_since_report = 90
+    annual_data = []  # [v3.5] 폴백 영역에서도 접근 가능하도록 바깥 초기화
 
     if os.path.exists(fund_path):
         annual_data = []
@@ -306,8 +448,10 @@ def load_stock_metrics(
             # OCF
             ocf = latest["operating_cash_flow"]
 
-            # WACC 기본값
-            wacc = 0.09
+            # WACC 동적 계산 [v3.5]: risk-free + beta × ERP
+            _risk_free = 0.04  # Fed funds rate 근사치
+            _equity_risk_premium = 0.05
+            wacc = _risk_free + beta * _equity_risk_premium
 
             # 이익률 YoY
             cur_margin = latest["operating_income"] / latest["revenue"] if latest["revenue"] > 0 else 0
@@ -357,6 +501,33 @@ def load_stock_metrics(
             has_consensus = True
             consensus_up_ratio = sum(1 for a in actions if a == "upgrade") / len(actions)
 
+    # [v3.5 폴백] 컨센서스 프록시 — 가격 변동성 수렴 + 추세 강도
+    # 논리: 변동성 감소 = 시장 참여자 합의 수렴 = 애널리스트 상향 확률↑
+    #        추세 강도(ADX 유사) = 방향성 확신 → 컨센서스 일치
+    if not has_consensus and len(closes) >= 60:
+        # (a) 변동성 수렴: 최근 20일 vs 이전 40일 변동성 비율
+        _recent_rets = [(closes[i] - closes[i+1]) / closes[i+1]
+                        for i in range(min(20, len(closes)-1))]
+        _prior_rets = [(closes[i] - closes[i+1]) / closes[i+1]
+                       for i in range(20, min(60, len(closes)-1))]
+        if _recent_rets and _prior_rets:
+            _vol_recent = (sum(r**2 for r in _recent_rets) / len(_recent_rets)) ** 0.5
+            _vol_prior = (sum(r**2 for r in _prior_rets) / len(_prior_rets)) ** 0.5
+            # 변동성 감소 비율 → 높을수록 수렴 (상향 신호)
+            _vol_converge = max(0, min(1, 1.0 - (_vol_recent / _vol_prior if _vol_prior > 0 else 1.0)))
+        else:
+            _vol_converge = 0.5
+
+        # (b) 추세 강도: 20일 수익률의 방향 일관성 (일관적 상승 = 강한 컨센서스)
+        _up_days = sum(1 for r in _recent_rets if r > 0) / max(1, len(_recent_rets))
+
+        # (c) 가격 위치: MA120 대비 위치 (장기 추세 위 = 양호)
+        _price_pos = max(0, min(1, (current_price / ma120 - 0.90) / 0.20)) if ma120 > 0 else 0.5
+
+        consensus_up_ratio = max(0.0, min(1.0,
+            _vol_converge * 0.3 + _up_days * 0.4 + _price_pos * 0.3))
+        has_consensus = True
+
     # ── 4. 어닝 서프라이즈 ──
     earnings_metric = None
     has_earnings = False
@@ -396,6 +567,33 @@ def load_stock_metrics(
             bonus = {4: 1.20, 3: 1.10}.get(consecutive_beats, 1.0)
             earnings_metric = weighted * bonus
 
+    # [v3.5 fallback] Earnings surprise proxy - operating margin acceleration + OCF quality
+    if not has_earnings and annual_data and len(annual_data) >= 2:
+        _lat = annual_data[0]
+        _prv = annual_data[1]
+
+        # (a) Operating margin change
+        _margin_lat = _lat["operating_income"] / _lat["revenue"] if _lat["revenue"] > 0 else 0
+        _margin_prv = _prv["operating_income"] / _prv["revenue"] if _prv["revenue"] > 0 else 0
+        _margin_accel = _margin_lat - _margin_prv
+
+        # (b) OCF/revenue ratio change (cash flow quality)
+        _ocf_rat_lat = _lat["operating_cash_flow"] / _lat["revenue"] if _lat["revenue"] > 0 else 0
+        _ocf_rat_prv = _prv["operating_cash_flow"] / _prv["revenue"] if _prv["revenue"] > 0 else 0
+        _ocf_improve = _ocf_rat_lat - _ocf_rat_prv
+
+        # (c) Acceleration bonus (3-year data)
+        _accel_bonus = 0
+        if len(annual_data) >= 3:
+            _prv2 = annual_data[2]
+            _m_prv2 = _prv2["operating_income"] / _prv2["revenue"] if _prv2["revenue"] > 0 else 0
+            if (_margin_lat - _margin_prv) > (_margin_prv - _m_prv2):
+                _accel_bonus = 0.05
+
+        _es_proxy = _margin_accel * 2.0 + _ocf_improve * 1.5 + _accel_bonus
+        earnings_metric = max(-0.10, min(0.30, _es_proxy))
+        has_earnings = True
+
     # ── 5. Short Interest ──
     si_composite = None
     has_si = False
@@ -427,6 +625,33 @@ def load_stock_metrics(
                 si_composite = level_signal * 0.2 + change_signal * 0.8
             else:
                 si_composite = level_signal * 0.4 + change_signal * 0.6
+
+    # [v3.5 폴백] Short Interest 데이터 없을 때 → 거래량 이상 + 가격 역행 프록시
+    # 논리: 거래량 급증 + 가격 하락 = 공매도 압력 증가 시그널
+    #        거래량 감소 + 가격 상승 = 공매도 커버링 (숏커버 랠리) 시그널
+    if not has_si and len(closes) >= 60 and len(volumes) >= 60:
+        # 최근 20일 vs 이전 40일 거래량 비율
+        _vol_recent = sum(volumes[:20]) / 20 if sum(volumes[:20]) > 0 else 1
+        _vol_prior = sum(volumes[20:60]) / 40 if sum(volumes[20:60]) > 0 else 1
+        _vol_ratio = _vol_recent / _vol_prior if _vol_prior > 0 else 1.0
+
+        # 최근 20일 수익률
+        _ret_20d = (closes[0] - closes[19]) / closes[19] if closes[19] > 0 else 0
+
+        # SI 프록시 해석:
+        # 거래량 ��가 + 가격 하락 → 공매도 증가 (나쁨, 낮은 점수)
+        # 거래량 증가 + 가격 상승 → 숏커버 (좋음, 높은 점수)
+        # 거래량 정상 → 중립
+        if _vol_ratio > 1.3 and _ret_20d > 0.02:
+            # 숏커버 랠리 가능성 → 긍정적
+            si_composite = min(1.0, 0.6 + _ret_20d * 2)
+        elif _vol_ratio > 1.3 and _ret_20d < -0.02:
+            # 공매도 압력 증가 → 부정적
+            si_composite = max(0.0, 0.4 + _ret_20d * 2)
+        else:
+            # 중립: 모멘텀 방향에 약간 반영
+            si_composite = max(0.0, min(1.0, 0.5 + _ret_20d))
+        has_si = True
 
     # ── StockMetrics 조립 ──
     return StockMetrics(
