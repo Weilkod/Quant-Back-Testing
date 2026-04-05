@@ -7,7 +7,7 @@ Quant-Alpha v3.4 — Backtesting Engine
 import numpy as np
 import json, math
 from datetime import datetime, timedelta
-from quant_alpha_v3_4_unified import (
+from quant_alpha_v3_4_1_phase1 import (
     StockMetrics, GateResult, StopCheckResult, ActionResult,
     PortfolioCandidate, AdjustedPosition, PortfolioMetrics,
     evaluate_survival_gate, calculate_score, check_trailing_stop,
