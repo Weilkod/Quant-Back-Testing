@@ -251,6 +251,12 @@ class BacktestEngine:
 
         _print_data_banner(self.stocks)
 
+        # [v3.7] 동적 무위험이자율 로드 (fedfunds.csv)
+        from data_loader import _get_latest_value
+        import os
+        _ff_path = os.path.join(os.environ.get("BACKTEST_DATA", "data"), "4_macro", "fedfunds.csv")
+        self._ff_path = _ff_path if os.path.exists(_ff_path) else None
+
         self.holdings={}; self.pv=[]; self.bv=[]; self.cash_h=[]
         self.reg_h=[]; self.trades=[]; self.reb_cnt=0; self.act_cnt={}
         self.dd_h=[]; self.pos_h=[]; self.monthly_s=[]; self.monthly_b=[]
@@ -286,7 +292,10 @@ class BacktestEngine:
                     pret+=h["w"]*sr; h["dh"]+=1; h["cp"]*=(1+sr)
                     if h["cp"]>h["hc"]: h["hc"]=h["cp"]
             cw=1.0-sum(h["w"] for h in self.holdings.values())
-            pret+=cw*(0.04/252)
+            # [v3.7] 동적 현금 수익률
+            from data_loader import _get_latest_value
+            _cash_rf = (_get_latest_value(self._ff_path, dt) / 100.0) if self._ff_path else 0.04
+            pret+=cw*(_cash_rf/252)
             self.cap*=(1+pret)
             self.pv.append(self.cap)
             self.bv.append(self.bench[di]/self.bench[0]*self.cap0)
@@ -334,8 +343,13 @@ class BacktestEngine:
         if cands:
             adj,met,q=manage_portfolio(cands,ecap)
             nh={}
+            # [v3.7] 거래비용: 포지션 변경량에 비례 (편도 15bp)
+            _TRADE_COST_BPS = 0.0015  # 15bp per side
+            _turnover = 0.0
             for p in adj:
                 if p.final_weight>0.005:
+                    old_w = self.holdings.get(p.symbol, {}).get("w", 0.0)
+                    _turnover += abs(p.final_weight - old_w)
                     if p.symbol in self.holdings:
                         o=self.holdings[p.symbol]
                         nh[p.symbol]={"w":p.final_weight,"ep":o["ep"],"hc":o["hc"],"cp":o["cp"],"dh":o["dh"],"ed":o["ed"],
@@ -344,12 +358,25 @@ class BacktestEngine:
                         ep=self._all_prices.get(p.symbol,{}).get(dt,100.0)
                         nh[p.symbol]={"w":p.final_weight,"ep":ep,"hc":ep,"cp":ep,"dh":0,
                             "ed":dt.strftime("%Y-%m-%d"),"act":next((c.action for c in cands if c.symbol==p.symbol),"HOLD")}
+            # 퇴출 종목의 weight도 turnover에 포함
+            for sym in self.holdings:
+                if sym not in nh:
+                    _turnover += self.holdings[sym]["w"]
+            self.cap *= (1 - _turnover * _TRADE_COST_BPS)
             self.holdings=nh
 
     def results(self):
         pv=np.array(self.pv); bv=np.array(self.bv)
         sr=np.diff(pv)/pv[:-1]; br=np.diff(bv)/bv[:-1]
-        ny=len(self.dates)/252; rf=0.04
+        ny=len(self.dates)/252
+        # [v3.7] 기간 평균 무위험이자율 사용
+        if self._ff_path:
+            from data_loader import _get_latest_value
+            _rates=[_get_latest_value(self._ff_path,d) for d in self.dates[::60]]
+            _valid=[r/100.0 for r in _rates if r is not None]
+            rf=sum(_valid)/len(_valid) if _valid else 0.04
+        else:
+            rf=0.04
         tr_s=(pv[-1]/pv[0])-1; tr_b=(bv[-1]/bv[0])-1
         cagr_s=(pv[-1]/pv[0])**(1/ny)-1; cagr_b=(bv[-1]/bv[0])**(1/ny)-1
         vol_s=np.std(sr)*np.sqrt(252); vol_b=np.std(br)*np.sqrt(252)

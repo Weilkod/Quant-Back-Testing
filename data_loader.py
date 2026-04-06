@@ -463,14 +463,16 @@ def load_stock_metrics(
             # [v3.6] PE relative: current_price / eps (eps > 0일 때만)
             _eps = latest.get("eps", 0)
             if _eps > 0 and current_price > 0:
-                pe_relative = current_price / _eps / 15.0  # 시장 평균 PE 15 기준 정규화
+                pe_relative = current_price / _eps / 18.0  # [v3.7] 시장 평균 PE 18 기준 정규화 (2019-2024 S&P500 평균)
             # else: 기본값 1.0 유지하지 않고 중립 처리
             elif _eps <= 0:
                 pe_relative = 1.0  # 적자 기업 → normalize 시 중간값
 
-            # [v3.6] Efficiency: 자산회전율 (revenue / total_assets)
-            if latest["total_assets"] > 0 and latest["revenue"] > 0:
-                efficiency = min(1.0, latest["revenue"] / latest["total_assets"])
+            # [v3.7] Efficiency: 영업이익률 (operating_income / revenue)
+            # 자산회전율은 섹터 간 비교 불가 (Tech vs 금융 구조적 차이)
+            if latest["revenue"] > 0:
+                _op_margin = latest["operating_income"] / latest["revenue"]
+                efficiency = max(0.0, min(1.0, _op_margin))  # 0~100% 범위
             # else: 기본값 0.5 유지
 
             # 이익률 YoY
