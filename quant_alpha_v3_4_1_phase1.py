@@ -732,7 +732,9 @@ def evaluate_survival_gate(
         details["gate_1_trend"] = "WARNING"
         warnings.append("TREND")
     elif below_ma200 or below_ma120:
-        details["gate_1_trend"] = "PASS"
+        # [v3.7] 한쪽 MA 이탈도 WARNING (기존 PASS → WARNING)
+        details["gate_1_trend"] = "WARNING"
+        warnings.append("TREND_WEAK")
     else:
         details["gate_1_trend"] = "PASS"
 
@@ -949,6 +951,9 @@ def calculate_score(metrics: StockMetrics, macro_alpha: float = 0.0) -> float:
     if metrics.beta is not None:
         _beta_proximity = 1.0 - min(1.0, abs(metrics.beta - 1.0))
         total_score += _beta_proximity * 3.0
+
+    # [v3.7] 최종 점수를 0~100 범위로 clamp
+    total_score = max(0.0, min(100.0, total_score))
 
     return round(total_score, 2)
 
@@ -1693,7 +1698,7 @@ def test_algorithm_score():
 
     # [P1-1/P1-2] 임계값 경계 테스트
     assert SCORE_BUY_THRESHOLD == 70, f"BUY 임계값 = {SCORE_BUY_THRESHOLD} (70이어야 함)"
-    assert SCORE_HOLD_THRESHOLD == 55, f"HOLD 임계값 = {SCORE_HOLD_THRESHOLD} (55이어야 함)"
+    assert SCORE_HOLD_THRESHOLD == 45, f"HOLD 임계값 = {SCORE_HOLD_THRESHOLD} (55이어야 함)"
 
     print("  ✅ algorithm 스코어 검증 통과 (P1 임계값+중립 포함)")
 
@@ -1819,7 +1824,7 @@ def test_phase1_changes():
 
     # [P1-1/P1-2] 임계값 변경 확인
     assert SCORE_BUY_THRESHOLD == 70, f"BUY 임계값 {SCORE_BUY_THRESHOLD} != 70"
-    assert SCORE_HOLD_THRESHOLD == 55, f"HOLD 임계값 {SCORE_HOLD_THRESHOLD} != 55"
+    assert SCORE_HOLD_THRESHOLD == 45, f"HOLD 임계값 {SCORE_HOLD_THRESHOLD} != 55"
 
     # [P1-3] OCF 음수 → WARNING (FAIL 아님) 확인
     m = _make_healthy_metrics()

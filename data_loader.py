@@ -56,6 +56,7 @@
 import os
 import csv
 import json
+import glob as _glob
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from quant_alpha_v3_4_1_phase1 import StockMetrics
@@ -345,7 +346,8 @@ def load_universe() -> List[dict]:
     Returns:
         [{"symbol", "sector", "country", "industry_type", "beta", "market_cap"}, ...]
     """
-    path = os.path.join(DATA_DIR, "6_universe", "sp500_current.csv")
+    _univ_files = sorted(_glob.glob(os.path.join(DATA_DIR, "6_universe", "sp500_*.csv")))
+    path = _univ_files[0] if _univ_files else os.path.join(DATA_DIR, "6_universe", "sp500_current.csv")
     price_dir = os.path.join(DATA_DIR, "1_price")
 
     # S&P500 벤치마크 가격 (Beta 계산용)
@@ -516,14 +518,16 @@ def load_stock_metrics(
         # [v3.6] PE relative: current_price / eps (eps > 0일 때만)
         _eps = latest.get("eps", 0)
         if _eps > 0 and current_price > 0:
-            pe_relative = current_price / _eps / 15.0  # 시장 평균 PE 15 기준 정규화
+            pe_relative = current_price / _eps / 18.0  # [v3.7] 시장 평균 PE 18 기준 정규화 (2019-2024 S&P500 평균)
         # else: 기본값 1.0 유지하지 않고 중립 처리
         elif _eps <= 0:
             pe_relative = 1.0  # 적자 기업 → normalize 시 중간값
 
-        # [v3.6] Efficiency: 자산회전율 (revenue / total_assets)
-        if latest["total_assets"] > 0 and latest["revenue"] > 0:
-            efficiency = min(1.0, latest["revenue"] / latest["total_assets"])
+        # [v3.7] Efficiency: 영업이익률 (operating_income / revenue)
+        # 자산회전율은 섹터 간 비교 불가 (Tech vs 금융 구조적 차이)
+        if latest["revenue"] > 0:
+            _op_margin = latest["operating_income"] / latest["revenue"]
+            efficiency = max(0.0, min(1.0, _op_margin))  # 0~100% 범위
         # else: 기본값 0.5 유지
 
         # 이익률 YoY
@@ -731,9 +735,13 @@ def load_macro_data(date: datetime) -> dict:
         "eu_rate":    "rate_ecb",
     }
 
+    _macro_fallbacks = {"gold_fred": "gold"}
+
     result = {}
     for key, fname in series_map.items():
         path = os.path.join(DATA_DIR, "4_macro", f"{fname}.csv")
+        if not os.path.exists(path) and fname in _macro_fallbacks:
+            path = os.path.join(DATA_DIR, "4_macro", f"{_macro_fallbacks[fname]}.csv")
         if os.path.exists(path):
             result[key] = _get_latest_value(path, date)
         else:

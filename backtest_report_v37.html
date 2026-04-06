@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quant-Alpha v3.7 종합 백테스트 보고서</title>
+<style>
+  :root {
+    --bg: #f8f9fa; --card: #ffffff; --text: #212529; --muted: #6c757d;
+    --border: #dee2e6; --stripe: #f2f4f6; --hover: #e9ecef;
+    --green: #198754; --red: #dc3545; --blue: #0d6efd; --orange: #fd7e14;
+    --header-bg: #1a1d23; --header-text: #f8f9fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1d23; --card: #212529; --text: #e9ecef; --muted: #adb5bd;
+      --border: #495057; --stripe: #2c3034; --hover: #343a40;
+      --header-bg: #0d1117; --header-text: #f8f9fa;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  header { background: var(--header-bg); color: var(--header-text); padding: 40px 20px; text-align: center; }
+  header h1 { font-size: 2em; margin-bottom: 8px; }
+  header p { color: var(--muted); font-size: 0.95em; }
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin: 24px 0; padding: 28px; }
+  .section h2 { font-size: 1.35em; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid var(--blue); }
+  .section h3 { font-size: 1.1em; margin: 20px 0 12px; color: var(--blue); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin: 12px 0; }
+  th { background: var(--header-bg); color: var(--header-text); padding: 10px 12px; text-align: center; font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: center; }
+  td:first-child, th:first-child { text-align: left; }
+  tbody tr:nth-child(even) { background: var(--stripe); }
+  tbody tr:hover { background: var(--hover); }
+  .pos { color: var(--green); font-weight: 600; }
+  .neg { color: var(--red); font-weight: 600; }
+  .pass { background: #19875422; color: var(--green); font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .fail { background: #dc354522; color: var(--red); font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
+  .badge-crit { background: #dc354533; color: var(--red); }
+  .badge-high { background: #fd7e1433; color: var(--orange); }
+  .badge-med { background: #0d6efd33; color: var(--blue); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
+  .kpi { background: var(--stripe); border-radius: 8px; padding: 16px; text-align: center; }
+  .kpi .label { font-size: 0.8em; color: var(--muted); margin-bottom: 4px; }
+  .kpi .value { font-size: 1.6em; font-weight: 700; }
+  .note { background: var(--stripe); border-left: 4px solid var(--blue); padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 0.9em; }
+  .note-warn { border-left-color: var(--orange); }
+  @media (max-width: 768px) {
+    .container { padding: 10px; }
+    .section { padding: 16px; }
+    table { font-size: 0.8em; }
+    td, th { padding: 6px 8px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Quant-Alpha v3.7 종합 백테스트 보고서</h1>
+  <p>생성일: 2026-04-06 | 3개 시나리오 비교 분석</p>
+</header>
+
+<div class="container">
+
+<!-- ===== 1. 수정사항 요약 ===== -->
+<div class="section">
+  <h2>1. v3.6 → v3.7 수정사항 요약</h2>
+  <table>
+    <thead>
+      <tr><th>우선순위</th><th>ID</th><th>수정 내용</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge badge-crit">CRITICAL</span></td><td>C1</td><td>Sharpe/Alpha/현금수익률 rf=0.04 하드코딩 → <code>fedfunds.csv</code> 기반 동적 무위험이자율</td></tr>
+      <tr><td><span class="badge badge-crit">CRITICAL</span></td><td>C2</td><td>Efficiency: 자산회전율(revenue/total_assets) → <strong>영업이익률(operating_income/revenue)</strong></td></tr>
+      <tr><td><span class="badge badge-crit">CRITICAL</span></td><td>C3</td><td><strong>거래비용 15bp/편도</strong> 적용 (리밸런싱 시 turnover 기반 차감)</td></tr>
+      <tr><td><span class="badge badge-high">HIGH</span></td><td>H1</td><td>Gate ① 트렌드: MA200 <strong>or</strong> MA120 한쪽 이탈 시에도 WARNING</td></tr>
+      <tr><td><span class="badge badge-high">HIGH</span></td><td>H3</td><td>PE 정규화 기준 15.0 → <strong>18.0</strong> (2019-2024 S&P500 평균 반영)</td></tr>
+      <tr><td><span class="badge badge-med">MEDIUM</span></td><td>M1</td><td>최종 점수 <code>clamp(0, 100)</code> 적용 (Beta 보너스로 100 초과 방지)</td></tr>
+      <tr><td><span class="badge badge-med">MEDIUM</span></td><td>M2</td><td>테스트 assert <code>SCORE_HOLD_THRESHOLD</code> 55 → 45 (실제 값 일치)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== 2. 핵심 지표 비교 ===== -->
+<div class="section">
+  <h2>2. 3개 시나리오 핵심 지표 비교</h2>
+  <table>
+    <thead>
+      <tr><th>지표</th><th>기본 (2013-2024)</th><th>서브프라임 (2002-2014)</th><th>닷컴 (1994-2006)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>전략 CAGR</td><td class="pos">+14.33%</td><td class="pos">+4.06%</td><td class="pos">+8.11%</td></tr>
+      <tr><td>벤치 CAGR</td><td>+11.67%</td><td>+4.55%</td><td>+8.95%</td></tr>
+      <tr><td>초과수익</td><td class="pos">+2.67%</td><td class="neg">-0.49%</td><td class="neg">-0.85%</td></tr>
+      <tr><td>Sharpe</td><td class="pos">0.901</td><td>0.007</td><td>0.446</td></tr>
+      <tr><td>Sortino</td><td class="pos">1.119</td><td>0.009</td><td>0.615</td></tr>
+      <tr><td>Calmar</td><td class="pos">0.526</td><td>0.171</td><td>0.400</td></tr>
+      <tr><td>MDD (전략)</td><td class="neg">-27.27%</td><td class="neg">-23.72%</td><td class="neg">-20.26%</td></tr>
+      <tr><td>MDD (벤치)</td><td>-33.92%</td><td>-56.78%</td><td>-49.15%</td></tr>
+      <tr><td>MDD 방어율</td><td>1.24x</td><td class="pos">2.39x</td><td class="pos">2.43x</td></tr>
+      <tr><td>Alpha</td><td class="pos">+4.98%</td><td class="neg">-0.14%</td><td class="pos">+1.79%</td></tr>
+      <tr><td>Beta</td><td>0.772</td><td>0.369</td><td>0.468</td></tr>
+      <tr><td>Vol (전략)</td><td>14.22%</td><td>8.76%</td><td>9.21%</td></tr>
+      <tr><td>Vol (벤치)</td><td>17.07%</td><td>20.13%</td><td>16.68%</td></tr>
+      <tr><td>Win Rate</td><td class="pos">67.8%</td><td>56.4%</td><td>58.4%</td></tr>
+      <tr><td>Profit Factor</td><td class="pos">5.92</td><td>1.56</td><td>2.18</td></tr>
+      <tr><td>Info Ratio</td><td class="pos">0.403</td><td class="neg">-0.036</td><td class="neg">-0.084</td></tr>
+      <tr><td>Tracking Error</td><td>6.62%</td><td>13.53%</td><td>10.12%</td></tr>
+      <tr><td>거래 수</td><td>5,013</td><td>1,836</td><td>3,010</td></tr>
+      <tr><td>리밸런싱 수</td><td>602</td><td>710</td><td>714</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== 3. 시나리오별 상세 ===== -->
+<div class="section">
+  <h2>3. 시나리오별 상세 분석</h2>
+
+  <!-- 3.1 기본 -->
+  <h3>3.1 기본 시나리오 (2013-06 ~ 2024-12, 11.6년)</h3>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">최종 자산</div><div class="value pos">$471M</div></div>
+    <div class="kpi"><div class="label">총수익률</div><div class="value pos">+371%</div></div>
+    <div class="kpi"><div class="label">CAGR</div><div class="value pos">+14.33%</div></div>
+    <div class="kpi"><div class="label">Sharpe</div><div class="value pos">0.901</div></div>
+  </div>
+
+  <h4 style="margin:16px 0 8px;">연도별 수익률 (%)</h4>
+  <table>
+    <thead><tr><th>연도</th><th>2013</th><th>2014</th><th>2015</th><th>2016</th><th>2017</th><th>2018</th><th>2019</th><th>2020</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th></tr></thead>
+    <tbody>
+      <tr><td>전략</td><td>0.05</td><td class="pos">8.86</td><td class="pos">6.05</td><td class="pos">13.36</td><td class="pos">25.65</td><td class="pos">2.22</td><td class="pos">30.67</td><td class="pos">32.97</td><td class="pos">28.12</td><td class="neg">-20.56</td><td class="pos">27.48</td><td class="pos">24.59</td></tr>
+      <tr><td>벤치</td><td class="pos">12.68</td><td class="pos">11.39</td><td class="neg">-0.73</td><td class="pos">9.54</td><td class="pos">19.42</td><td class="neg">-6.24</td><td class="pos">28.88</td><td class="pos">16.26</td><td class="pos">26.89</td><td class="neg">-19.44</td><td class="pos">24.23</td><td class="pos">23.84</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin:16px 0 8px;">스트레스 테스트</h4>
+  <table>
+    <thead><tr><th>이벤트</th><th>전략</th><th>벤치</th><th>방어율</th></tr></thead>
+    <tbody>
+      <tr><td>COVID Crash (2020.02-03)</td><td class="neg">-10.11%</td><td class="neg">-20.45%</td><td class="pos">2.02x</td></tr>
+      <tr><td>COVID Recovery (2020.04-06)</td><td class="pos">+22.50%</td><td class="pos">+25.49%</td><td>0.88x</td></tr>
+      <tr><td>Rate Hike (2022.01-06)</td><td class="neg">-21.16%</td><td class="neg">-21.08%</td><td>~1.0x</td></tr>
+      <tr><td>Bear Market (2022.07-12)</td><td class="neg">-0.45%</td><td class="pos">+0.37%</td><td>-</td></tr>
+      <tr><td>2023 Recovery</td><td class="pos">+18.63%</td><td class="pos">+16.38%</td><td class="pos">상회</td></tr>
+      <tr><td>2024 Bull</td><td class="pos">+15.28%</td><td class="pos">+15.13%</td><td class="pos">상회</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 3.2 서브프라임 -->
+  <h3>3.2 서브프라임 시나리오 (2002-01 ~ 2014-12, 13년)</h3>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">최종 자산</div><div class="value">$168M</div></div>
+    <div class="kpi"><div class="label">MDD 방어율</div><div class="value pos">2.39x</div></div>
+    <div class="kpi"><div class="label">전략 Vol</div><div class="value pos">8.76%</div></div>
+    <div class="kpi"><div class="label">벤치 Vol</div><div class="value neg">20.13%</div></div>
+  </div>
+  <div class="note note-warn">
+    <strong>핵심:</strong> 2008년 전략 -12.39% vs 벤치 -38.49% → <strong>26.1%p 방어</strong>. MDD -23.72% (벤치 -56.78%). 위기 방어력이 압도적이나, 회복기 반등 참여 부족으로 CAGR 소폭 하회.
+  </div>
+
+  <h4 style="margin:16px 0 8px;">연도별 수익률 (%)</h4>
+  <table>
+    <thead><tr><th>연도</th><th>2002</th><th>2003</th><th>2004</th><th>2005</th><th>2006</th><th>2007</th><th>2008</th><th>2009</th><th>2010</th><th>2011</th><th>2012</th><th>2013</th><th>2014</th></tr></thead>
+    <tbody>
+      <tr><td>전략</td><td class="pos">2.21</td><td class="pos">9.74</td><td class="pos">3.70</td><td class="neg">-0.97</td><td class="pos">4.69</td><td class="pos">7.38</td><td class="neg">-12.39</td><td class="pos">11.45</td><td>0.30</td><td class="neg">-1.53</td><td class="pos">7.01</td><td class="pos">15.73</td><td class="pos">9.07</td></tr>
+      <tr><td>벤치</td><td class="neg">-23.80</td><td class="pos">26.38</td><td class="pos">8.99</td><td class="pos">3.00</td><td class="pos">13.62</td><td class="pos">3.53</td><td class="neg">-38.49</td><td class="pos">23.45</td><td class="pos">12.78</td><td>0.00</td><td class="pos">13.41</td><td class="pos">29.60</td><td class="pos">12.55</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 3.3 닷컴 -->
+  <h3>3.3 닷컴 버블 시나리오 (1994-01 ~ 2006-12, 13년)</h3>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">최종 자산</div><div class="value">$275M</div></div>
+    <div class="kpi"><div class="label">MDD 방어율</div><div class="value pos">2.43x</div></div>
+    <div class="kpi"><div class="label">Alpha</div><div class="value pos">+1.79%</div></div>
+    <div class="kpi"><div class="label">IS/OOS 차이</div><div class="value pos">0.209</div></div>
+  </div>
+  <div class="note note-warn">
+    <strong>핵심:</strong> 닷컴 붕괴 3년(2000-2002) 누적 방어 <strong>46.8%p</strong> (전략 +0.26% vs 벤치 -46.55%). IS/OOS Sharpe 차이 0.209 &lt; 0.3으로 과적합 검증 통과.
+  </div>
+
+  <h4 style="margin:16px 0 8px;">연도별 수익률 (%)</h4>
+  <table>
+    <thead><tr><th>연도</th><th>1994</th><th>1995</th><th>1996</th><th>1997</th><th>1998</th><th>1999</th><th>2000</th><th>2001</th><th>2002</th><th>2003</th><th>2004</th><th>2005</th><th>2006</th></tr></thead>
+    <tbody>
+      <tr><td>전략</td><td class="pos">3.00</td><td class="pos">30.67</td><td class="pos">11.43</td><td class="pos">27.30</td><td class="pos">16.69</td><td>0.65</td><td class="pos">9.88</td><td class="neg">-1.15</td><td class="neg">-8.47</td><td class="pos">13.65</td><td class="pos">5.40</td><td class="neg">-0.91</td><td class="pos">4.28</td></tr>
+      <tr><td>벤치</td><td class="neg">-1.33</td><td class="pos">34.11</td><td class="pos">20.26</td><td class="pos">31.01</td><td class="pos">26.67</td><td class="pos">19.53</td><td class="neg">-10.14</td><td class="neg">-13.04</td><td class="neg">-23.37</td><td class="pos">26.38</td><td class="pos">8.99</td><td class="pos">3.00</td><td class="pos">14.13</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== 4. v3.6 → v3.7 변화 ===== -->
+<div class="section">
+  <h2>4. v3.6 → v3.7 변화 분석</h2>
+
+  <h3>CAGR 변화</h3>
+  <table>
+    <thead><tr><th>시나리오</th><th>v3.6 CAGR</th><th>v3.7 CAGR</th><th>차이</th><th>주요 원인</th></tr></thead>
+    <tbody>
+      <tr><td>기본</td><td>+17.78%</td><td>+14.33%</td><td class="neg">-3.45%</td><td>거래비용 15bp 반영</td></tr>
+      <tr><td>서브프라임</td><td>+2.46%</td><td>+4.06%</td><td class="pos">+1.60%</td><td>벤치마크 데이터 정상화</td></tr>
+      <tr><td>닷컴</td><td>+2.28%</td><td>+8.11%</td><td class="pos">+5.83%</td><td>벤치마크 데이터 정상화</td></tr>
+    </tbody>
+  </table>
+
+  <h3>전략 특성 프로파일</h3>
+  <table>
+    <thead><tr><th>특성</th><th>평가</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td>위기 방어</td><td class="pos">우수</td><td>3개 시나리오 모두 MDD가 벤치마크의 40~60%</td></tr>
+      <tr><td>상승장 참여</td><td class="pos">양호</td><td>기본 시나리오에서 벤치마크 상회 (+2.67%)</td></tr>
+      <tr><td>회복기 참여</td><td class="neg">약점</td><td>위기 후 급반등 구간에서 지속적 underperform</td></tr>
+      <tr><td>거래비용 내성</td><td>보통</td><td>15bp에서 ~3.5% CAGR 차감 (주간 리밸런싱)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== 5. 검증기준 ===== -->
+<div class="section">
+  <h2>5. 검증기준 통과 현황</h2>
+  <table>
+    <thead><tr><th>기준</th><th>기본</th><th>서브프라임</th><th>닷컴</th></tr></thead>
+    <tbody>
+      <tr><td>excess_return &gt; 0</td><td><span class="pass">PASS</span></td><td><span class="fail">FAIL</span></td><td><span class="fail">FAIL</span></td></tr>
+      <tr><td>sharpe &gt; 0.5</td><td><span class="pass">PASS</span></td><td><span class="fail">FAIL</span></td><td><span class="fail">FAIL</span></td></tr>
+      <tr><td>mdd &lt; 120% of bench</td><td><span class="pass">PASS</span></td><td><span class="pass">PASS</span></td><td><span class="pass">PASS</span></td></tr>
+      <tr><td>IS/OOS diff &lt; 0.3</td><td><span class="fail">FAIL</span></td><td><span class="fail">FAIL</span></td><td><span class="pass">PASS</span></td></tr>
+      <tr><td>beta 0.8~1.2</td><td><span class="fail">FAIL</span></td><td><span class="fail">FAIL</span></td><td><span class="fail">FAIL</span></td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:12px;color:var(--muted);font-size:0.9em;">전체 통과: 0/3 시나리오 | MDD 기준은 전 시나리오 통과</p>
+</div>
+
+<!-- ===== 6. 남은 과제 ===== -->
+<div class="section">
+  <h2>6. 미충족 검증기준 및 남은 개선 과제</h2>
+  <table>
+    <thead><tr><th>#</th><th>과제</th><th>현황</th><th>영향</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Beta 과도한 방어</strong> (0.37~0.77)</td><td>목표 0.8~1.2 대비 지속 하회</td><td>위기 방어 우수하나 상승장 참여 부족</td></tr>
+      <tr><td>2</td><td><strong>IS/OOS Sharpe 괴리</strong> (기본: 0.55)</td><td>과적합 우려</td><td>파라미터 축소 또는 교차검증 강화 필요</td></tr>
+      <tr><td>3</td><td><strong>위기 시나리오 초과수익 음수</strong></td><td>서브프라임 -0.49%, 닷컴 -0.85%</td><td>Low-beta 전략의 구조적 한계</td></tr>
+      <tr><td>4</td><td><strong>스트레스 테스트 날짜 미적용</strong></td><td>서브프라임/닷컴 이벤트가 기본(2020-2024) 고정</td><td>해당 기간 데이터 없어 전부 0%</td></tr>
+      <tr><td>5</td><td><strong>배당 수익 미반영</strong></td><td>총수익(Total Return) 미포함</td><td>장기 CAGR 1~2% 과소평가 가능</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== Footer ===== -->
+<footer style="text-align:center; padding:24px; color:var(--muted); font-size:0.85em;">
+  Quant-Alpha v3.7 | Generated by Claude Code | Data: S&P 500 Universe (48-50 stocks)
+</footer>
+
+</div>
+</body>
+</html>
