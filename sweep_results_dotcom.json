@@ -1,0 +1,94 @@
+{
+  "sweep_config": {
+    "parameter": "SCORE_BUY_THRESHOLD",
+    "values": [
+      54,
+      57,
+      60,
+      63,
+      66
+    ],
+    "hold_ratio": 0.75,
+    "baseline": 60,
+    "scenario": "Dotcom (1994-2006)"
+  },
+  "results": {
+    "54": {
+      "buy": 54,
+      "hold": 40,
+      "cagr": 8.38,
+      "cagr_bench": 8.95,
+      "excess": -0.58,
+      "sharpe": 0.516,
+      "mdd": -18.18,
+      "alpha": 2.19,
+      "beta": 0.442,
+      "info_ratio": -0.056,
+      "win_rate": 43.5,
+      "elapsed_sec": 22.7
+    },
+    "57": {
+      "buy": 57,
+      "hold": 43,
+      "cagr": 8.45,
+      "cagr_bench": 8.95,
+      "excess": -0.51,
+      "sharpe": 0.528,
+      "mdd": -17.77,
+      "alpha": 2.27,
+      "beta": 0.439,
+      "info_ratio": -0.05,
+      "win_rate": 54.3,
+      "elapsed_sec": 19.7
+    },
+    "60": {
+      "buy": 60,
+      "hold": 45,
+      "cagr": 8.45,
+      "cagr_bench": 8.95,
+      "excess": -0.51,
+      "sharpe": 0.532,
+      "mdd": -17.34,
+      "alpha": 2.28,
+      "beta": 0.436,
+      "info_ratio": -0.05,
+      "win_rate": 58.6,
+      "elapsed_sec": 19.7
+    },
+    "63": {
+      "buy": 63,
+      "hold": 47,
+      "cagr": 8.51,
+      "cagr_bench": 8.95,
+      "excess": -0.44,
+      "sharpe": 0.546,
+      "mdd": -17.13,
+      "alpha": 2.37,
+      "beta": 0.433,
+      "info_ratio": -0.043,
+      "win_rate": 62.3,
+      "elapsed_sec": 19.5
+    },
+    "66": {
+      "buy": 66,
+      "hold": 50,
+      "cagr": 8.55,
+      "cagr_bench": 8.95,
+      "excess": -0.4,
+      "sharpe": 0.563,
+      "mdd": -16.31,
+      "alpha": 2.45,
+      "beta": 0.425,
+      "info_ratio": -0.039,
+      "win_rate": 65.7,
+      "elapsed_sec": 19.6
+    }
+  },
+  "sensitivity": {
+    "cagr_range": 0.17,
+    "sharpe_range": 0.047,
+    "cagr_pct_change": 2.01,
+    "sharpe_pct_change": 8.83,
+    "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+  }
+}

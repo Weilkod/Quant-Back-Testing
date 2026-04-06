@@ -1,0 +1,52 @@
+{
+  "scenarios": {
+    "dotcom": "Dotcom (1994-2006)",
+    "subprime": "Subprime (2002-2014)"
+  },
+  "buy_sweep": {
+    "dotcom": {
+      "cagr_range": 0.17,
+      "sharpe_range": 0.047,
+      "cagr_pct_change": 2.01,
+      "sharpe_pct_change": 8.83,
+      "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+    },
+    "subprime": {
+      "cagr_range": 0.06,
+      "sharpe_range": 0.008,
+      "cagr_pct_change": 1.33,
+      "sharpe_pct_change": 13.11,
+      "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+    },
+    "main": {
+      "cagr_range": 0.13,
+      "sharpe_range": 0.007,
+      "cagr_pct_change": 0.93,
+      "sharpe_pct_change": 0.8,
+      "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+    }
+  },
+  "type_cap_sweep": {
+    "dotcom": {
+      "cagr_range": 3.47,
+      "sharpe_range": 0.122,
+      "cagr_pct_change": 41.07,
+      "sharpe_pct_change": 22.93,
+      "verdict": "SENSITIVE — 파라미터 민감 (과적합 가능성 높음)"
+    },
+    "subprime": {
+      "cagr_range": 0.42,
+      "sharpe_range": 0.033,
+      "cagr_pct_change": 9.33,
+      "sharpe_pct_change": 54.1,
+      "verdict": "SENSITIVE — 파라미터 민감 (과적합 가능성 높음)"
+    },
+    "main": {
+      "cagr_range": 1.61,
+      "sharpe_range": 0.086,
+      "cagr_pct_change": 11.52,
+      "sharpe_pct_change": 9.77,
+      "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+    }
+  }
+}

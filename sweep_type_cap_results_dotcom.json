@@ -1,0 +1,205 @@
+{
+  "sweep_config": {
+    "parameter": "TYPE_CAP_C",
+    "values": [
+      0.06,
+      0.08,
+      0.1,
+      0.12,
+      0.14
+    ],
+    "type_ratios": {
+      "A": 1.5,
+      "B": 1.2,
+      "C": 1.0,
+      "D": 2.0
+    },
+    "baseline": 0.1,
+    "base_weight": 0.07,
+    "scenario": "Dotcom (1994-2006)"
+  },
+  "results": {
+    "0.06": {
+      "cap_c": 0.06,
+      "caps": {
+        "A": 0.09,
+        "B": 0.072,
+        "C": 0.06,
+        "D": 0.12
+      },
+      "cagr": 6.49,
+      "cagr_bench": 8.95,
+      "excess": -2.46,
+      "sharpe": 0.45,
+      "mdd": -11.11,
+      "alpha": 1.13,
+      "beta": 0.276,
+      "info_ratio": -0.197,
+      "win_rate": 57.3,
+      "avg_positions": 24.7,
+      "avg_cash_pct": 67.5,
+      "trades": 2089,
+      "is_sharpe": 0.516,
+      "oos_sharpe": 0.262,
+      "sharpe_diff": 0.253,
+      "actions": {
+        "HOLD": 16495,
+        "EXIT": 1339,
+        "REDUCE": 11650,
+        "STOP_EXIT": 572,
+        "S_BUY": 1215,
+        "TREND_BUY": 2416,
+        "WAIT_DIP": 33,
+        "TREND_HOLD": 54
+      },
+      "elapsed_sec": 18.5
+    },
+    "0.08": {
+      "cap_c": 0.08,
+      "caps": {
+        "A": 0.12,
+        "B": 0.096,
+        "C": 0.08,
+        "D": 0.16
+      },
+      "cagr": 7.68,
+      "cagr_bench": 8.95,
+      "excess": -1.27,
+      "sharpe": 0.522,
+      "mdd": -14.56,
+      "alpha": 1.89,
+      "beta": 0.361,
+      "info_ratio": -0.113,
+      "win_rate": 58.8,
+      "avg_positions": 26.6,
+      "avg_cash_pct": 58.0,
+      "trades": 2673,
+      "is_sharpe": 0.579,
+      "oos_sharpe": 0.363,
+      "sharpe_diff": 0.216,
+      "actions": {
+        "HOLD": 16432,
+        "EXIT": 1432,
+        "REDUCE": 11626,
+        "STOP_EXIT": 621,
+        "S_BUY": 1212,
+        "TREND_BUY": 2413,
+        "WAIT_DIP": 33,
+        "TREND_HOLD": 54
+      },
+      "elapsed_sec": 19.3
+    },
+    "0.1": {
+      "cap_c": 0.1,
+      "caps": {
+        "A": 0.15,
+        "B": 0.12,
+        "C": 0.1,
+        "D": 0.2
+      },
+      "cagr": 8.45,
+      "cagr_bench": 8.95,
+      "excess": -0.51,
+      "sharpe": 0.532,
+      "mdd": -17.34,
+      "alpha": 2.28,
+      "beta": 0.436,
+      "info_ratio": -0.05,
+      "win_rate": 58.6,
+      "avg_positions": 27.5,
+      "avg_cash_pct": 50.0,
+      "trades": 3002,
+      "is_sharpe": 0.572,
+      "oos_sharpe": 0.427,
+      "sharpe_diff": 0.145,
+      "actions": {
+        "HOLD": 16379,
+        "EXIT": 1518,
+        "REDUCE": 11602,
+        "STOP_EXIT": 651,
+        "S_BUY": 1206,
+        "TREND_BUY": 2410,
+        "WAIT_DIP": 33,
+        "TREND_HOLD": 54
+      },
+      "elapsed_sec": 19.7
+    },
+    "0.12": {
+      "cap_c": 0.12,
+      "caps": {
+        "A": 0.18,
+        "B": 0.144,
+        "C": 0.12,
+        "D": 0.24
+      },
+      "cagr": 9.26,
+      "cagr_bench": 8.95,
+      "excess": 0.31,
+      "sharpe": 0.553,
+      "mdd": -19.65,
+      "alpha": 2.78,
+      "beta": 0.501,
+      "info_ratio": 0.032,
+      "win_rate": 59.0,
+      "avg_positions": 27.8,
+      "avg_cash_pct": 42.9,
+      "trades": 3142,
+      "is_sharpe": 0.582,
+      "oos_sharpe": 0.487,
+      "sharpe_diff": 0.095,
+      "actions": {
+        "HOLD": 16333,
+        "EXIT": 1605,
+        "REDUCE": 11571,
+        "STOP_EXIT": 659,
+        "S_BUY": 1203,
+        "TREND_BUY": 2405,
+        "WAIT_DIP": 31,
+        "TREND_HOLD": 54
+      },
+      "elapsed_sec": 19.8
+    },
+    "0.14": {
+      "cap_c": 0.14,
+      "caps": {
+        "A": 0.21,
+        "B": 0.168,
+        "C": 0.14,
+        "D": 0.28
+      },
+      "cagr": 9.96,
+      "cagr_bench": 8.95,
+      "excess": 1.0,
+      "sharpe": 0.572,
+      "mdd": -20.34,
+      "alpha": 3.22,
+      "beta": 0.553,
+      "info_ratio": 0.113,
+      "win_rate": 59.2,
+      "avg_positions": 27.8,
+      "avg_cash_pct": 37.6,
+      "trades": 3165,
+      "is_sharpe": 0.589,
+      "oos_sharpe": 0.547,
+      "sharpe_diff": 0.043,
+      "actions": {
+        "HOLD": 16281,
+        "EXIT": 1706,
+        "REDUCE": 11531,
+        "STOP_EXIT": 662,
+        "S_BUY": 1200,
+        "TREND_BUY": 2399,
+        "WAIT_DIP": 31,
+        "TREND_HOLD": 54
+      },
+      "elapsed_sec": 20.2
+    }
+  },
+  "sensitivity": {
+    "cagr_range": 3.47,
+    "sharpe_range": 0.122,
+    "cagr_pct_change": 41.07,
+    "sharpe_pct_change": 22.93,
+    "verdict": "SENSITIVE — 파라미터 민감 (과적합 가능성 높음)"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "sweep_config": {
+    "parameter": "SCORE_BUY_THRESHOLD",
+    "values": [
+      54,
+      57,
+      60,
+      63,
+      66
+    ],
+    "hold_ratio": 0.75,
+    "baseline": 60,
+    "scenario": "Subprime (2002-2014)"
+  },
+  "results": {
+    "54": {
+      "buy": 54,
+      "hold": 40,
+      "cagr": 4.51,
+      "cagr_bench": 4.55,
+      "excess": -0.05,
+      "sharpe": 0.062,
+      "mdd": -22.9,
+      "alpha": 0.31,
+      "beta": 0.353,
+      "info_ratio": -0.003,
+      "win_rate": 37.1,
+      "elapsed_sec": 19.7
+    },
+    "57": {
+      "buy": 57,
+      "hold": 43,
+      "cagr": 4.52,
+      "cagr_bench": 4.55,
+      "excess": -0.03,
+      "sharpe": 0.064,
+      "mdd": -22.72,
+      "alpha": 0.32,
+      "beta": 0.351,
+      "info_ratio": -0.003,
+      "win_rate": 48.7,
+      "elapsed_sec": 19.3
+    },
+    "60": {
+      "buy": 60,
+      "hold": 45,
+      "cagr": 4.5,
+      "cagr_bench": 4.55,
+      "excess": -0.06,
+      "sharpe": 0.061,
+      "mdd": -22.59,
+      "alpha": 0.3,
+      "beta": 0.349,
+      "info_ratio": -0.004,
+      "win_rate": 56.0,
+      "elapsed_sec": 19.4
+    },
+    "63": {
+      "buy": 63,
+      "hold": 47,
+      "cagr": 4.56,
+      "cagr_bench": 4.55,
+      "excess": 0.0,
+      "sharpe": 0.069,
+      "mdd": -22.54,
+      "alpha": 0.36,
+      "beta": 0.347,
+      "info_ratio": 0.0,
+      "win_rate": 64.2,
+      "elapsed_sec": 19.2
+    },
+    "66": {
+      "buy": 66,
+      "hold": 50,
+      "cagr": 4.51,
+      "cagr_bench": 4.55,
+      "excess": -0.04,
+      "sharpe": 0.065,
+      "mdd": -22.54,
+      "alpha": 0.32,
+      "beta": 0.343,
+      "info_ratio": -0.003,
+      "win_rate": 66.3,
+      "elapsed_sec": 19.6
+    }
+  },
+  "sensitivity": {
+    "cagr_range": 0.06,
+    "sharpe_range": 0.008,
+    "cagr_pct_change": 1.33,
+    "sharpe_pct_change": 13.11,
+    "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+  }
+}
