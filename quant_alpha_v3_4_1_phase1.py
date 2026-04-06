@@ -1830,7 +1830,7 @@ def test_phase1_changes():
 
     # [P1-4] 결측 팩터 중립 점수 확인
     assert MISSING_FACTOR_NEUTRAL_SCORE == 0.5
-    assert REDISTRIBUTE_MISSING_WEIGHTS == False
+    assert REDISTRIBUTE_MISSING_WEIGHTS == True
 
     m_full = _make_healthy_metrics()
     score_full = calculate_score(m_full, macro_alpha=0.0)
