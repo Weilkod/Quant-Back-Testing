@@ -1,0 +1,94 @@
+{
+  "sweep_config": {
+    "parameter": "SCORE_BUY_THRESHOLD",
+    "values": [
+      54,
+      57,
+      60,
+      63,
+      66
+    ],
+    "hold_ratio": 0.75,
+    "baseline": 60,
+    "scenario": "main (2013-2024)"
+  },
+  "results": {
+    "54": {
+      "buy": 54,
+      "hold": 40,
+      "cagr": 17.71,
+      "cagr_bench": 12.47,
+      "excess": 5.24,
+      "sharpe": 0.908,
+      "mdd": -27.33,
+      "alpha": 7.19,
+      "beta": 0.77,
+      "info_ratio": 0.761,
+      "win_rate": 52.0,
+      "elapsed_sec": 10.5
+    },
+    "57": {
+      "buy": 57,
+      "hold": 43,
+      "cagr": 17.75,
+      "cagr_bench": 12.47,
+      "excess": 5.27,
+      "sharpe": 0.91,
+      "mdd": -27.26,
+      "alpha": 7.22,
+      "beta": 0.77,
+      "info_ratio": 0.767,
+      "win_rate": 58.6,
+      "elapsed_sec": 10.4
+    },
+    "60": {
+      "buy": 60,
+      "hold": 45,
+      "cagr": 17.78,
+      "cagr_bench": 12.47,
+      "excess": 5.31,
+      "sharpe": 0.913,
+      "mdd": -27.14,
+      "alpha": 7.27,
+      "beta": 0.77,
+      "info_ratio": 0.771,
+      "win_rate": 64.9,
+      "elapsed_sec": 10.3
+    },
+    "63": {
+      "buy": 63,
+      "hold": 47,
+      "cagr": 17.73,
+      "cagr_bench": 12.47,
+      "excess": 5.26,
+      "sharpe": 0.909,
+      "mdd": -27.05,
+      "alpha": 7.21,
+      "beta": 0.77,
+      "info_ratio": 0.763,
+      "win_rate": 68.5,
+      "elapsed_sec": 10.5
+    },
+    "66": {
+      "buy": 66,
+      "hold": 50,
+      "cagr": 17.48,
+      "cagr_bench": 12.47,
+      "excess": 5.01,
+      "sharpe": 0.893,
+      "mdd": -27.57,
+      "alpha": 6.96,
+      "beta": 0.77,
+      "info_ratio": 0.728,
+      "win_rate": 68.8,
+      "elapsed_sec": 10.6
+    }
+  },
+  "sensitivity": {
+    "cagr_range": 0.3,
+    "sharpe_range": 0.02,
+    "cagr_pct_change": 1.69,
+    "sharpe_pct_change": 2.19,
+    "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+  }
+}

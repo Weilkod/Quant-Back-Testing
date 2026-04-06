@@ -62,6 +62,139 @@ from quant_alpha_v3_4_1_phase1 import StockMetrics
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), os.environ.get("BACKTEST_DATA", "data"))
 
+# ══════════════════════════════════════════════════════════════
+# [v3.7] 메모리 캐시 — CSV를 종목별로 1회만 읽고 재사용
+# ══════════════════════════════════════════════════════════════
+_price_cache: dict = {}      # {symbol: [{"date":dt,"close":f,"volume":f}, ...]}  오름차순
+_fund_cache: dict = {}       # {symbol: [annual_data_rows]}
+_signal_cache: dict = {}     # {(symbol, type): data}
+
+
+def _load_price_cached(symbol: str) -> list:
+    """종목 가격 CSV를 캐시에서 반환. 없으면 로드 후 캐시."""
+    if symbol not in _price_cache:
+        price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
+        rows = []
+        if os.path.exists(price_path):
+            with open(price_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        date_str = row.get("Date") or row.get("date", "")
+                        close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
+                        vol_str = row.get("Volume") or row.get("volume", "0")
+                        if not date_str or not close_str:
+                            continue
+                        dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+                        rows.append({
+                            "date": dt,
+                            "close": float(close_str),
+                            "volume": float(vol_str) if vol_str else 0.0,
+                        })
+                    except (ValueError, KeyError):
+                        pass
+        rows.sort(key=lambda x: x["date"])
+        _price_cache[symbol] = rows
+    return _price_cache[symbol]
+
+
+def _load_fund_cached(symbol: str) -> list:
+    """종목 재무 CSV를 캐시에서 반환."""
+    if symbol not in _fund_cache:
+        fund_path = os.path.join(DATA_DIR, "2_fundamental", f"{symbol}.csv")
+        rows = []
+        if os.path.exists(fund_path):
+            with open(fund_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        yr = int(row["year"])
+                        rows.append({
+                            "year": yr,
+                            "revenue": float(row.get("revenue") or 0),
+                            "operating_income": float(row.get("operating_income") or 0),
+                            "net_income": float(row.get("net_income") or 0),
+                            "total_assets": float(row.get("total_assets") or 0),
+                            "total_equity": float(row.get("total_equity") or 0),
+                            "total_debt": float(row.get("total_debt") or 0),
+                            "operating_cash_flow": float(row.get("operating_cash_flow") or 0),
+                            "eps": float(row.get("eps") or 0),
+                        })
+                    except (ValueError, KeyError, TypeError):
+                        pass
+        rows.sort(key=lambda x: x["year"])
+        _fund_cache[symbol] = rows
+    return _fund_cache[symbol]
+
+
+def _load_signal_cached(symbol: str, sig_type: str) -> list:
+    """시그널 CSV를 캐시에서 반환. sig_type: 'consensus', 'earnings', 'short'"""
+    key = (symbol, sig_type)
+    if key not in _signal_cache:
+        if sig_type == "consensus":
+            path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_consensus.csv")
+            rows = []
+            if os.path.exists(path):
+                with open(path) as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
+                            action = row.get("action", "").strip().lower()
+                            rows.append({"date": dt, "action": action})
+                        except (ValueError, KeyError):
+                            pass
+            _signal_cache[key] = rows
+
+        elif sig_type == "earnings":
+            path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_earnings_surprise.csv")
+            if not os.path.exists(path):
+                path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_earnings.csv")
+            rows = []
+            if os.path.exists(path):
+                with open(path) as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
+                            actual = float(row.get("actual_eps") or row.get("actualEPS", 0))
+                            estimated = float(row.get("estimated_eps") or row.get("estimatedEPS", 0))
+                            rows.append({"date": dt, "actualEPS": actual, "estimatedEPS": estimated})
+                        except (ValueError, KeyError, TypeError):
+                            pass
+            rows.sort(key=lambda x: x["date"])
+            _signal_cache[key] = rows
+
+        elif sig_type == "short":
+            path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_short_interest.csv")
+            if not os.path.exists(path):
+                path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_short.csv")
+            rows = []
+            if os.path.exists(path):
+                with open(path) as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
+                            sir_val = float(row.get("sir") or 0)
+                            rows.append({"date": dt, "sir": sir_val})
+                        except (ValueError, KeyError, TypeError):
+                            pass
+            rows.sort(key=lambda x: x["date"])
+            _signal_cache[key] = rows
+        else:
+            _signal_cache[key] = []
+    return _signal_cache[key]
+
+
+def clear_caches():
+    """모든 캐시 초기화 (sweep 등 반복 실행 시 DATA_DIR 변경 후 호출)."""
+    _price_cache.clear()
+    _fund_cache.clear()
+    _signal_cache.clear()
+    _csv_cache.clear()
+
+
 # 섹터명 정규화 (sp500_current.csv → 알고리즘 내부 표준명)
 _SECTOR_MAP = {
     "Technology": "Technology",
@@ -101,23 +234,12 @@ def _compute_beta(symbol: str, bench_prices: dict, lookback: int = 252) -> float
     Returns:
         float — beta 값 (데이터 부족 시 1.0 반환)
     """
-    price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
-    if not os.path.exists(price_path):
+    # 캐시에서 가격 로드
+    price_rows = _load_price_cached(symbol)
+    if not price_rows:
         return 1.0
 
-    # 종목 가격 로드
-    stock_prices = {}
-    with open(price_path) as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                date_str = row.get("Date") or row.get("date", "")
-                close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
-                if date_str and close_str:
-                    dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
-                    stock_prices[dt] = float(close_str)
-            except (ValueError, KeyError):
-                pass
+    stock_prices = {p["date"]: p["close"] for p in price_rows}
 
     # 공통 날짜 정렬
     common_dates = sorted(set(stock_prices.keys()) & set(bench_prices.keys()))
@@ -156,41 +278,21 @@ def _estimate_market_cap(symbol: str) -> float:
     [v3.5] 최신 가격과 재무 데이터로 시가총액 추정.
     net_income과 EPS로 주식수 역산 → 시가총액 계산.
     """
-    price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
-    fund_path = os.path.join(DATA_DIR, "2_fundamental", f"{symbol}.csv")
+    # 캐시에서 가격 로드
+    price_rows = _load_price_cached(symbol)
+    if not price_rows:
+        return 50e9
+    latest_price = price_rows[-1]["close"]  # 오름차순이므로 마지막이 최신
 
-    # 최신 주가 가져오기
-    latest_price = None
-    if os.path.exists(price_path):
-        with open(price_path) as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
-                    if close_str:
-                        latest_price = float(close_str)
-                except (ValueError, KeyError):
-                    pass
-
-    if latest_price is None:
-        return 50e9  # 기본값
-
-    # EPS와 net_income에서 shares outstanding 역산
-    if os.path.exists(fund_path):
-        with open(fund_path) as f:
-            reader = csv.DictReader(f)
-            latest_row = None
-            for row in reader:
-                latest_row = row
-            if latest_row:
-                try:
-                    eps = float(latest_row.get("eps") or 0)
-                    net_income = float(latest_row.get("net_income") or 0)
-                    if eps != 0 and net_income != 0:
-                        shares = abs(net_income / eps)
-                        return latest_price * shares
-                except (ValueError, KeyError, TypeError):
-                    pass
+    # 캐시에서 재무 데이터 로드
+    fund_rows = _load_fund_cached(symbol)
+    if fund_rows:
+        latest_row = fund_rows[-1]  # 오름차순이므로 마지막이 최신
+        eps = latest_row.get("eps", 0)
+        net_income = latest_row.get("net_income", 0)
+        if eps != 0 and net_income != 0:
+            shares = abs(net_income / eps)
+            return latest_price * shares
 
     return 50e9  # 기본값
 
@@ -342,35 +444,18 @@ def load_stock_metrics(
         StockMetrics 또는 None (데이터 부족 시)
     """
 
-    # ── 1. 가격 데이터 로드 ──
-    price_path = os.path.join(DATA_DIR, "1_price", f"{symbol}.csv")
-    if not os.path.exists(price_path):
+    # ── 1. 가격 데이터 로드 (캐시 사용) ──
+    all_prices = _load_price_cached(symbol)
+    if not all_prices:
         return None
 
-    prices = []
-    with open(price_path) as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                date_str = row.get("Date") or row.get("date", "")
-                close_str = row.get("Adj Close") or row.get("Close") or row.get("close", "")
-                vol_str = row.get("Volume") or row.get("volume", "0")
-                if not date_str or not close_str:
-                    continue
-                dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
-                if dt <= date:
-                    prices.append({
-                        "date": dt,
-                        "close": float(close_str),
-                        "volume": float(vol_str) if vol_str else 0.0,
-                    })
-            except (ValueError, KeyError):
-                pass
+    # 오름차순 캐시에서 date 이전 데이터만 필터 (bisect 사용)
+    import bisect
+    _idx = bisect.bisect_right([p["date"] for p in all_prices], date)
+    prices = list(reversed(all_prices[:_idx]))  # 최신→과거 순
 
     if len(prices) < 200:
         return None
-
-    prices.sort(key=lambda x: x["date"], reverse=True)
 
     current_price = prices[0]["close"]
     closes = [p["close"] for p in prices]
@@ -391,105 +476,75 @@ def load_stock_metrics(
     # 평균 일거래대금
     avg_daily_volume = sum(v * c for v, c in zip(volumes[:20], closes[:20])) / 20
 
-    # ── 2. 재무 데이터 로드 (연간 CSV) ──
-    fund_path = os.path.join(DATA_DIR, "2_fundamental", f"{symbol}.csv")
     roic = wacc = roa = ocf = None
     growth_cagr = 0.0
     profit_trend_yoy = 0.5
     pe_relative = 1.0
     efficiency = 0.5
     days_since_report = 90
-    annual_data = []  # [v3.5] 폴백 영역에서도 접근 가능하도록 바깥 초기화
+    # ── 2. 재무 데이터 로드 (캐시 사용) ──
+    all_fund = _load_fund_cached(symbol)
+    annual_data = []
+    for row in all_fund:
+        report_avail = datetime(row["year"] + 1, 3, 31)
+        if report_avail <= date:
+            annual_data.append({**row, "report_date": report_avail})
+    annual_data.sort(key=lambda x: x["year"], reverse=True)
 
-    if os.path.exists(fund_path):
-        annual_data = []
-        with open(fund_path) as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    yr = int(row["year"])
-                    # 연간 보고서는 다음해 3월말 이후 사용 (look-ahead bias 방지)
-                    report_avail = datetime(yr + 1, 3, 31)
-                    if report_avail <= date:
-                        rev = float(row.get("revenue") or 0)
-                        op_inc = float(row.get("operating_income") or 0)
-                        net_inc = float(row.get("net_income") or 0)
-                        assets = float(row.get("total_assets") or 0)
-                        equity = float(row.get("total_equity") or 0)
-                        debt = float(row.get("total_debt") or 0)
-                        ocf_val = float(row.get("operating_cash_flow") or 0)
-                        eps_val = float(row.get("eps") or 0)
-                        annual_data.append({
-                            "year": yr,
-                            "report_date": report_avail,
-                            "revenue": rev,
-                            "operating_income": op_inc,
-                            "net_income": net_inc,
-                            "total_assets": assets,
-                            "total_equity": equity,
-                            "total_debt": debt,
-                            "operating_cash_flow": ocf_val,
-                            "eps": eps_val,
-                        })
-                except (ValueError, KeyError, TypeError):
-                    pass
+    if annual_data:
+        latest = annual_data[0]
+        days_since_report = (date - latest["report_date"]).days
 
-        annual_data.sort(key=lambda x: x["year"], reverse=True)
+        # ROIC = net_income / invested_capital
+        invested_cap = latest["total_equity"] + latest["total_debt"]
+        roic = latest["net_income"] / invested_cap if invested_cap > 0 else None
 
-        if annual_data:
-            latest = annual_data[0]
-            days_since_report = (date - latest["report_date"]).days
+        # ROA = net_income / total_assets
+        roa = latest["net_income"] / latest["total_assets"] if latest["total_assets"] > 0 else None
 
-            # ROIC = net_income / invested_capital
-            invested_cap = latest["total_equity"] + latest["total_debt"]
-            roic = latest["net_income"] / invested_cap if invested_cap > 0 else None
+        # OCF
+        ocf = latest["operating_cash_flow"]
 
-            # ROA = net_income / total_assets
-            roa = latest["net_income"] / latest["total_assets"] if latest["total_assets"] > 0 else None
+        # WACC 동적 계산 [v3.5]: risk-free + beta × ERP
+        # [v3.6] 실제 Fed Funds Rate 사용 (fedfunds.csv)
+        _ff_path = os.path.join(DATA_DIR, "4_macro", "fedfunds.csv")
+        _ff_rate = _get_latest_value(_ff_path, date) if os.path.exists(_ff_path) else None
+        _risk_free = _ff_rate / 100.0 if _ff_rate is not None else 0.04
+        _equity_risk_premium = 0.05
+        wacc = _risk_free + beta * _equity_risk_premium
 
-            # OCF
-            ocf = latest["operating_cash_flow"]
+        # [v3.6] PE relative: current_price / eps (eps > 0일 때만)
+        _eps = latest.get("eps", 0)
+        if _eps > 0 and current_price > 0:
+            pe_relative = current_price / _eps / 15.0  # 시장 평균 PE 15 기준 정규화
+        # else: 기본값 1.0 유지하지 않고 중립 처리
+        elif _eps <= 0:
+            pe_relative = 1.0  # 적자 기업 → normalize 시 중간값
 
-            # WACC 동적 계산 [v3.5]: risk-free + beta × ERP
-            # [v3.6] 실제 Fed Funds Rate 사용 (fedfunds.csv)
-            _ff_path = os.path.join(DATA_DIR, "4_macro", "fedfunds.csv")
-            _ff_rate = _get_latest_value(_ff_path, date) if os.path.exists(_ff_path) else None
-            _risk_free = _ff_rate / 100.0 if _ff_rate is not None else 0.04
-            _equity_risk_premium = 0.05
-            wacc = _risk_free + beta * _equity_risk_premium
+        # [v3.6] Efficiency: 자산회전율 (revenue / total_assets)
+        if latest["total_assets"] > 0 and latest["revenue"] > 0:
+            efficiency = min(1.0, latest["revenue"] / latest["total_assets"])
+        # else: 기본값 0.5 유지
 
-            # [v3.6] PE relative: current_price / eps (eps > 0일 때만)
-            _eps = latest.get("eps", 0)
-            if _eps > 0 and current_price > 0:
-                pe_relative = current_price / _eps / 15.0  # 시장 평균 PE 15 기준 정규화
-            # else: 기본값 1.0 유지하지 않고 중립 처리
-            elif _eps <= 0:
-                pe_relative = 1.0  # 적자 기업 → normalize 시 중간값
+        # 이익률 YoY
+        cur_margin = latest["operating_income"] / latest["revenue"] if latest["revenue"] > 0 else 0
+        if len(annual_data) >= 2:
+            prev = annual_data[1]
+            prev_margin = prev["operating_income"] / prev["revenue"] if prev["revenue"] > 0 else 0
+            profit_trend_yoy = min(1.0, max(0.0, 0.5 + (cur_margin - prev_margin) * 5))
 
-            # [v3.6] Efficiency: 자산회전율 (revenue / total_assets)
-            if latest["total_assets"] > 0 and latest["revenue"] > 0:
-                efficiency = min(1.0, latest["revenue"] / latest["total_assets"])
-            # else: 기본값 0.5 유지
-
-            # 이익률 YoY
-            cur_margin = latest["operating_income"] / latest["revenue"] if latest["revenue"] > 0 else 0
-            if len(annual_data) >= 2:
-                prev = annual_data[1]
-                prev_margin = prev["operating_income"] / prev["revenue"] if prev["revenue"] > 0 else 0
-                profit_trend_yoy = min(1.0, max(0.0, 0.5 + (cur_margin - prev_margin) * 5))
-
-            # 3년 매출 CAGR
-            if len(annual_data) >= 4:
-                rev_now = latest["revenue"]
-                rev_3y = annual_data[3]["revenue"]
-                if rev_3y > 0 and rev_now > 0:
-                    growth_cagr = (rev_now / rev_3y) ** (1/3) - 1
-            elif len(annual_data) >= 2:
-                rev_now = latest["revenue"]
-                rev_old = annual_data[-1]["revenue"]
-                n_years = latest["year"] - annual_data[-1]["year"]
-                if rev_old > 0 and rev_now > 0 and n_years > 0:
-                    growth_cagr = (rev_now / rev_old) ** (1/n_years) - 1
+        # 3년 매출 CAGR
+        if len(annual_data) >= 4:
+            rev_now = latest["revenue"]
+            rev_3y = annual_data[3]["revenue"]
+            if rev_3y > 0 and rev_now > 0:
+                growth_cagr = (rev_now / rev_3y) ** (1/3) - 1
+        elif len(annual_data) >= 2:
+            rev_now = latest["revenue"]
+            rev_old = annual_data[-1]["revenue"]
+            n_years = latest["year"] - annual_data[-1]["year"]
+            if rev_old > 0 and rev_now > 0 and n_years > 0:
+                growth_cagr = (rev_now / rev_old) ** (1/n_years) - 1
 
     # ROIC Z-Score
     roic_zscore = 0.5
@@ -498,68 +553,45 @@ def load_stock_metrics(
         z = max(-3, min(3, z))
         roic_zscore = (z + 3) / 6
 
-    # ── 3. 컨센서스 ──
+    # ── 3. 컨센서스 (캐시 사용) ──
     consensus_up_ratio = None
     has_consensus = False
-    con_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_consensus.csv")
-    if os.path.exists(con_path):
-        with open(con_path) as f:
-            reader = csv.DictReader(f)
-            actions = []
-            for row in reader:
-                try:
-                    dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
-                    if (date - dt).days <= 30:
-                        action = row.get("action", "").strip().lower()
-                        if action in ("upgrade", "downgrade"):
-                            actions.append(action)
-                except (ValueError, KeyError):
-                    pass
-        if actions:
-            has_consensus = True
-            consensus_up_ratio = sum(1 for a in actions if a == "upgrade") / len(actions)
+    con_rows = _load_signal_cached(symbol, "consensus")
+    _con_actions = [r["action"] for r in con_rows
+                    if 0 <= (date - r["date"]).days <= 30
+                    and r["action"] in ("upgrade", "downgrade")]
+    if _con_actions:
+        has_consensus = True
+        consensus_up_ratio = sum(1 for a in _con_actions if a == "upgrade") / len(_con_actions)
 
     # [v3.6] 컨센서스 프록시 비활성화 — 모멘텀 팩터와 중복 방지
     # 실제 데이터 없으면 has_consensus=False 유지 → 스코어링에서 중립 0.5 + 가중치 재분배
 
-    # ── 4. 어닝 서프라이즈 ──
+    # ── 4. 어닝 서프라이즈 (캐시 사용) ──
     earnings_metric = None
     has_earnings = False
-    es_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_earnings_surprise.csv")
-    if os.path.exists(es_path):
-        with open(es_path) as f:
-            reader = csv.DictReader(f)
-            earnings = []
-            for row in reader:
-                try:
-                    dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
-                    if dt <= date:
-                        actual = float(row.get("actual_eps") or row.get("actualEPS", 0))
-                        estimated = float(row.get("estimated_eps") or row.get("estimatedEPS", 0))
-                        earnings.append({"date": dt, "actualEPS": actual, "estimatedEPS": estimated})
-                except (ValueError, KeyError, TypeError):
-                    pass
+    _earn_rows = _load_signal_cached(symbol, "earnings")
+    earnings = [e for e in _earn_rows if e["date"] <= date]
+    earnings.sort(key=lambda x: x["date"], reverse=True)
 
-        earnings.sort(key=lambda x: x["date"], reverse=True)
+    if len(earnings) >= 4:
+        has_earnings = True
+        weights = [0.4, 0.3, 0.2, 0.1]
+        surprises = []
+        for e in earnings[:4]:
+            est = abs(e["estimatedEPS"]) if e["estimatedEPS"] != 0 else 1
+            surprises.append((e["actualEPS"] - e["estimatedEPS"]) / est)
 
-        if len(earnings) >= 4:
-            has_earnings = True
-            weights = [0.4, 0.3, 0.2, 0.1]
-            surprises = []
-            for e in earnings[:4]:
-                est = abs(e["estimatedEPS"]) if e["estimatedEPS"] != 0 else 1
-                surprises.append((e["actualEPS"] - e["estimatedEPS"]) / est)
+        weighted = sum(s * w for s, w in zip(surprises, weights))
 
-            weighted = sum(s * w for s, w in zip(surprises, weights))
-
-            consecutive_beats = 0
-            for s in surprises:
-                if s > 0:
-                    consecutive_beats += 1
-                else:
-                    break
-            bonus = {4: 1.20, 3: 1.10}.get(consecutive_beats, 1.0)
-            earnings_metric = weighted * bonus
+        consecutive_beats = 0
+        for s in surprises:
+            if s > 0:
+                consecutive_beats += 1
+            else:
+                break
+        bonus = {4: 1.20, 3: 1.10}.get(consecutive_beats, 1.0)
+        earnings_metric = weighted * bonus
 
     # [v3.5 fallback] Earnings surprise proxy - operating margin acceleration + OCF quality
     if not has_earnings and annual_data and len(annual_data) >= 2:
@@ -591,22 +623,10 @@ def load_stock_metrics(
     # ── 5. Short Interest ──
     si_composite = None
     has_si = False
-    si_path = os.path.join(DATA_DIR, "3_signal", f"{symbol}_short_interest.csv")
-    if os.path.exists(si_path):
-        with open(si_path) as f:
-            reader = csv.DictReader(f)
-            si_rows = []
-            for row in reader:
-                try:
-                    dt = datetime.strptime(row["date"].strip(), "%Y-%m-%d")
-                    if dt <= date:
-                        sir_val = float(row.get("sir") or 0)
-                        si_rows.append({"date": dt, "sir": sir_val})
-                except (ValueError, KeyError, TypeError):
-                    pass
-
-        si_rows.sort(key=lambda x: x["date"], reverse=True)
-        if len(si_rows) >= 2:
+    _si_all = _load_signal_cached(symbol, "short")
+    si_rows = [r for r in _si_all if r["date"] <= date]
+    si_rows.sort(key=lambda x: x["date"], reverse=True)
+    if len(si_rows) >= 2:
             has_si = True
             sir = si_rows[0]["sir"]
             sir_prev = si_rows[1]["sir"]
