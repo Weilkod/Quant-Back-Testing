@@ -201,7 +201,7 @@ MULTI_WARNING_CAP = 0.30                  # L2  WARNING 2개+: 비중 30% 제한
 
 # ─── 포지션 사이징 ───
 
-BASE_WEIGHT = 0.12                        # [v3.5] 기본 종목 비중 12%
+BASE_WEIGHT = 0.07                        # [v3.8] 0.12→0.07: TYPE_CAP 이전에 SCORE_FACTOR 차이 반영
 
 TYPE_CAPS = {
     "A": 0.15,                            # 소형 성장

@@ -1,0 +1,205 @@
+{
+  "sweep_config": {
+    "parameter": "TYPE_CAP_C",
+    "values": [
+      0.06,
+      0.08,
+      0.1,
+      0.12,
+      0.14
+    ],
+    "type_ratios": {
+      "A": 1.5,
+      "B": 1.2,
+      "C": 1.0,
+      "D": 2.0
+    },
+    "baseline": 0.1,
+    "base_weight": 0.07,
+    "scenario": "main (2013-2024)"
+  },
+  "results": {
+    "0.06": {
+      "cap_c": 0.06,
+      "caps": {
+        "A": 0.09,
+        "B": 0.072,
+        "C": 0.06,
+        "D": 0.12
+      },
+      "cagr": 12.36,
+      "cagr_bench": 11.67,
+      "excess": 0.69,
+      "sharpe": 0.96,
+      "mdd": -20.13,
+      "alpha": 4.77,
+      "beta": 0.598,
+      "info_ratio": 0.083,
+      "win_rate": 67.6,
+      "avg_positions": 27.5,
+      "avg_cash_pct": 35.2,
+      "trades": 4953,
+      "is_sharpe": 1.173,
+      "oos_sharpe": 0.544,
+      "sharpe_diff": 0.629,
+      "actions": {
+        "HOLD": 10256,
+        "REDUCE": 13670,
+        "STOP_EXIT": 511,
+        "S_BUY": 955,
+        "TREND_BUY": 1743,
+        "WAIT_DIP": 32,
+        "EXIT": 1,
+        "TREND_HOLD": 59
+      },
+      "elapsed_sec": 15.1
+    },
+    "0.08": {
+      "cap_c": 0.08,
+      "caps": {
+        "A": 0.12,
+        "B": 0.096,
+        "C": 0.08,
+        "D": 0.16
+      },
+      "cagr": 13.66,
+      "cagr_bench": 11.67,
+      "excess": 2.0,
+      "sharpe": 0.918,
+      "mdd": -23.27,
+      "alpha": 4.89,
+      "beta": 0.715,
+      "info_ratio": 0.284,
+      "win_rate": 67.8,
+      "avg_positions": 27.6,
+      "avg_cash_pct": 24.7,
+      "trades": 4996,
+      "is_sharpe": 1.107,
+      "oos_sharpe": 0.546,
+      "sharpe_diff": 0.561,
+      "actions": {
+        "HOLD": 10256,
+        "REDUCE": 13670,
+        "STOP_EXIT": 521,
+        "S_BUY": 955,
+        "TREND_BUY": 1743,
+        "WAIT_DIP": 32,
+        "EXIT": 1,
+        "TREND_HOLD": 59
+      },
+      "elapsed_sec": 14.9
+    },
+    "0.1": {
+      "cap_c": 0.1,
+      "caps": {
+        "A": 0.15,
+        "B": 0.12,
+        "C": 0.1,
+        "D": 0.2
+      },
+      "cagr": 13.97,
+      "cagr_bench": 11.67,
+      "excess": 2.31,
+      "sharpe": 0.88,
+      "mdd": -26.33,
+      "alpha": 4.64,
+      "beta": 0.77,
+      "info_ratio": 0.352,
+      "win_rate": 67.8,
+      "avg_positions": 27.6,
+      "avg_cash_pct": 20.7,
+      "trades": 5007,
+      "is_sharpe": 1.065,
+      "oos_sharpe": 0.521,
+      "sharpe_diff": 0.543,
+      "actions": {
+        "HOLD": 10256,
+        "REDUCE": 13670,
+        "STOP_EXIT": 523,
+        "S_BUY": 955,
+        "TREND_BUY": 1743,
+        "WAIT_DIP": 32,
+        "EXIT": 1,
+        "TREND_HOLD": 59
+      },
+      "elapsed_sec": 15.0
+    },
+    "0.12": {
+      "cap_c": 0.12,
+      "caps": {
+        "A": 0.18,
+        "B": 0.144,
+        "C": 0.12,
+        "D": 0.24
+      },
+      "cagr": 13.97,
+      "cagr_bench": 11.67,
+      "excess": 2.3,
+      "sharpe": 0.874,
+      "mdd": -27.45,
+      "alpha": 4.59,
+      "beta": 0.775,
+      "info_ratio": 0.351,
+      "win_rate": 67.6,
+      "avg_positions": 27.6,
+      "avg_cash_pct": 20.3,
+      "trades": 5004,
+      "is_sharpe": 1.077,
+      "oos_sharpe": 0.482,
+      "sharpe_diff": 0.595,
+      "actions": {
+        "HOLD": 10256,
+        "REDUCE": 13670,
+        "STOP_EXIT": 523,
+        "S_BUY": 955,
+        "TREND_BUY": 1743,
+        "WAIT_DIP": 32,
+        "EXIT": 1,
+        "TREND_HOLD": 59
+      },
+      "elapsed_sec": 14.9
+    },
+    "0.14": {
+      "cap_c": 0.14,
+      "caps": {
+        "A": 0.21,
+        "B": 0.168,
+        "C": 0.14,
+        "D": 0.28
+      },
+      "cagr": 13.96,
+      "cagr_bench": 11.67,
+      "excess": 2.29,
+      "sharpe": 0.874,
+      "mdd": -27.35,
+      "alpha": 4.58,
+      "beta": 0.774,
+      "info_ratio": 0.35,
+      "win_rate": 67.7,
+      "avg_positions": 27.6,
+      "avg_cash_pct": 20.2,
+      "trades": 5008,
+      "is_sharpe": 1.073,
+      "oos_sharpe": 0.489,
+      "sharpe_diff": 0.584,
+      "actions": {
+        "HOLD": 10256,
+        "REDUCE": 13670,
+        "STOP_EXIT": 523,
+        "S_BUY": 955,
+        "TREND_BUY": 1743,
+        "WAIT_DIP": 32,
+        "EXIT": 1,
+        "TREND_HOLD": 59
+      },
+      "elapsed_sec": 15.0
+    }
+  },
+  "sensitivity": {
+    "cagr_range": 1.61,
+    "sharpe_range": 0.086,
+    "cagr_pct_change": 11.52,
+    "sharpe_pct_change": 9.77,
+    "verdict": "ROBUST — 파라미터 로버스트 (과적합 우려 낮음)"
+  }
+}
