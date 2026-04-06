@@ -418,6 +418,7 @@ def load_stock_metrics(
                         equity = float(row.get("total_equity") or 0)
                         debt = float(row.get("total_debt") or 0)
                         ocf_val = float(row.get("operating_cash_flow") or 0)
+                        eps_val = float(row.get("eps") or 0)
                         annual_data.append({
                             "year": yr,
                             "report_date": report_avail,
@@ -428,6 +429,7 @@ def load_stock_metrics(
                             "total_equity": equity,
                             "total_debt": debt,
                             "operating_cash_flow": ocf_val,
+                            "eps": eps_val,
                         })
                 except (ValueError, KeyError, TypeError):
                     pass
@@ -449,9 +451,25 @@ def load_stock_metrics(
             ocf = latest["operating_cash_flow"]
 
             # WACC 동적 계산 [v3.5]: risk-free + beta × ERP
-            _risk_free = 0.04  # Fed funds rate 근사치
+            # [v3.6] 실제 Fed Funds Rate 사용 (fedfunds.csv)
+            _ff_path = os.path.join(DATA_DIR, "4_macro", "fedfunds.csv")
+            _ff_rate = _get_latest_value(_ff_path, date) if os.path.exists(_ff_path) else None
+            _risk_free = _ff_rate / 100.0 if _ff_rate is not None else 0.04
             _equity_risk_premium = 0.05
             wacc = _risk_free + beta * _equity_risk_premium
+
+            # [v3.6] PE relative: current_price / eps (eps > 0일 때만)
+            _eps = latest.get("eps", 0)
+            if _eps > 0 and current_price > 0:
+                pe_relative = current_price / _eps / 15.0  # 시장 평균 PE 15 기준 정규화
+            # else: 기본값 1.0 유지하지 않고 중립 처리
+            elif _eps <= 0:
+                pe_relative = 1.0  # 적자 기업 → normalize 시 중간값
+
+            # [v3.6] Efficiency: 자산회전율 (revenue / total_assets)
+            if latest["total_assets"] > 0 and latest["revenue"] > 0:
+                efficiency = min(1.0, latest["revenue"] / latest["total_assets"])
+            # else: 기본값 0.5 유지
 
             # 이익률 YoY
             cur_margin = latest["operating_income"] / latest["revenue"] if latest["revenue"] > 0 else 0
@@ -501,32 +519,8 @@ def load_stock_metrics(
             has_consensus = True
             consensus_up_ratio = sum(1 for a in actions if a == "upgrade") / len(actions)
 
-    # [v3.5 폴백] 컨센서스 프록시 — 가격 변동성 수렴 + 추세 강도
-    # 논리: 변동성 감소 = 시장 참여자 합의 수렴 = 애널리스트 상향 확률↑
-    #        추세 강도(ADX 유사) = 방향성 확신 → 컨센서스 일치
-    if not has_consensus and len(closes) >= 60:
-        # (a) 변동성 수렴: 최근 20일 vs 이전 40일 변동성 비율
-        _recent_rets = [(closes[i] - closes[i+1]) / closes[i+1]
-                        for i in range(min(20, len(closes)-1))]
-        _prior_rets = [(closes[i] - closes[i+1]) / closes[i+1]
-                       for i in range(20, min(60, len(closes)-1))]
-        if _recent_rets and _prior_rets:
-            _vol_recent = (sum(r**2 for r in _recent_rets) / len(_recent_rets)) ** 0.5
-            _vol_prior = (sum(r**2 for r in _prior_rets) / len(_prior_rets)) ** 0.5
-            # 변동성 감소 비율 → 높을수록 수렴 (상향 신호)
-            _vol_converge = max(0, min(1, 1.0 - (_vol_recent / _vol_prior if _vol_prior > 0 else 1.0)))
-        else:
-            _vol_converge = 0.5
-
-        # (b) 추세 강도: 20일 수익률의 방향 일관성 (일관적 상승 = 강한 컨센서스)
-        _up_days = sum(1 for r in _recent_rets if r > 0) / max(1, len(_recent_rets))
-
-        # (c) 가격 위치: MA120 대비 위치 (장기 추세 위 = 양호)
-        _price_pos = max(0, min(1, (current_price / ma120 - 0.90) / 0.20)) if ma120 > 0 else 0.5
-
-        consensus_up_ratio = max(0.0, min(1.0,
-            _vol_converge * 0.3 + _up_days * 0.4 + _price_pos * 0.3))
-        has_consensus = True
+    # [v3.6] 컨센서스 프록시 비활성화 — 모멘텀 팩터와 중복 방지
+    # 실제 데이터 없으면 has_consensus=False 유지 → 스코어링에서 중립 0.5 + 가중치 재분배
 
     # ── 4. 어닝 서프라이즈 ──
     earnings_metric = None
@@ -626,10 +620,9 @@ def load_stock_metrics(
             else:
                 si_composite = level_signal * 0.4 + change_signal * 0.6
 
-    # [v3.5 폴백] Short Interest 데이터 없을 때 → 거래량 이상 + 가격 역행 프록시
-    # 논리: 거래량 급증 + 가격 하락 = 공매도 압력 증가 시그널
-    #        거래량 감소 + 가격 상승 = 공매도 커버링 (숏커버 랠리) 시그널
-    if not has_si and len(closes) >= 60 and len(volumes) >= 60:
+    # [v3.6] SI 프록시 비활성화 — 모멘텀 팩터와 중복 방지
+    # 실제 데이터 없으면 has_si=False 유지 → 스코어링에서 중립 0.5 + 가중치 재분배
+    if False and not has_si and len(closes) >= 60 and len(volumes) >= 60:
         # 최근 20일 vs 이전 40일 거래량 비율
         _vol_recent = sum(volumes[:20]) / 20 if sum(volumes[:20]) > 0 else 1
         _vol_prior = sum(volumes[20:60]) / 40 if sum(volumes[20:60]) > 0 else 1
@@ -731,22 +724,35 @@ def load_macro_data(date: datetime) -> dict:
 
 # ── 유틸리티 ──
 
+# [v3.6] CSV 캐시: 파일별로 한 번만 읽고 (date, value) 리스트로 캐싱
+_csv_cache: dict = {}
+
 def _get_latest_value(csv_path: str, as_of: datetime) -> Optional[float]:
     """CSV에서 as_of 이전 최신값 반환. Date/date, Value/value 컬럼 모두 지원."""
+    if csv_path not in _csv_cache:
+        entries = []
+        if os.path.exists(csv_path):
+            with open(csv_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        date_str = row.get("Date") or row.get("date", "")
+                        val_str = row.get("Value") or row.get("value", "")
+                        if not date_str or not val_str:
+                            continue
+                        dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+                        entries.append((dt, float(val_str)))
+                    except (ValueError, KeyError):
+                        pass
+        entries.sort(key=lambda x: x[0])
+        _csv_cache[csv_path] = entries
+
     latest = None
-    with open(csv_path) as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                date_str = row.get("Date") or row.get("date", "")
-                val_str = row.get("Value") or row.get("value", "")
-                if not date_str or not val_str:
-                    continue
-                dt = datetime.strptime(date_str.strip(), "%Y-%m-%d")
-                if dt <= as_of:
-                    latest = float(val_str)
-            except (ValueError, KeyError):
-                pass
+    for dt, val in _csv_cache[csv_path]:
+        if dt <= as_of:
+            latest = val
+        else:
+            break
     return latest
 
 
